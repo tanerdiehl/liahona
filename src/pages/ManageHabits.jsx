@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { fetchHabits, PALETTE } from '../lib/habits'
+import { track } from '../lib/saveStatus'
 
 const EMPTY = { name: '', color: PALETTE[0].value, frequency: 'daily', why: '', system: '', minimum: '', stretch: '' }
 
@@ -23,7 +24,7 @@ export default function ManageHabits() {
   }, [])
 
   async function run(promise) {
-    const { error } = await promise
+    const { error } = await track(promise)
     if (error) setError(error.message)
     else setError('')
     await reload()
@@ -66,7 +67,7 @@ export default function ManageHabits() {
       .filter((h) => habits.find((o) => o.id === h.id).sort_order !== h.sort_order)
     setHabits(list)
     await Promise.all(
-      changed.map((h) => supabase.from('habits').update({ sort_order: h.sort_order }).eq('id', h.id)),
+      changed.map((h) => track(supabase.from('habits').update({ sort_order: h.sort_order }).eq('id', h.id))),
     )
     await reload()
   }

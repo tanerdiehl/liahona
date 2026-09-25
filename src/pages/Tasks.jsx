@@ -1,33 +1,32 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { fetchAll } from '../lib/habits'
-import { formatLong, todayISO, toISO } from '../lib/dates'
+import { track } from '../lib/saveStatus'
+import { formatShort, todayISO, toISO } from '../lib/dates'
 
+const SHOW_DONE_KEY = 'liahona.todo.showDone'
+
+function readShowDone() {
+  try {
+    return localStorage.getItem(SHOW_DONE_KEY) !== 'false'
+  } catch {
+    return true
+  }
+}
+
+// Google Keep-style checklist. Completed items stay forever, struck
+// through, under a collapsible "Completed items" section.
 export default function Tasks() {
-  const [open, setOpen] = useState(null)
-  const [done, setDone] = useState([])
-  const [title, setTitle] = useState('')
-  const [query, setQuery] = useState('')
+  const [tasks, setTasks] = useState(null)
+  const [draft, setDraft] = useState('')
   const [editingId, setEditingId] = useState(null)
+  const [showDone, setShowDone] = useState(readShowDone)
   const [error, setError] = useState('')
   const inputRef = useRef(null)
 
   const load = useCallback(async () => {
     try {
-      const [openRows, doneRows] = await Promise.all([
-        fetchAll(() =>
-          supabase.from('tasks').select('*').is('completed_at', null).order('created_at', { ascending: false }),
-        ),
-        fetchAll(() =>
-          supabase
-            .from('tasks')
-            .select('*')
-            .not('completed_at', 'is', null)
-            .order('completed_at', { ascending: false }),
-        ),
-      ])
-      setOpen(openRows)
-      setDone(doneRows)
+      setTasks(await fetchAll(() => supabase.from('tasks').select('*').order('created_at')))
     } catch (e) {
       setError(e.message)
     }
@@ -37,55 +36,56 @@ export default function Tasks() {
     load()
   }, [load])
 
-  async function mutate(promise) {
-    const { error } = await promise
-    setError(error ? error.message : '')
+  async function mutate(query) {
+    const { error } = await track(query)
+    setError(error ? `Not saved — ${error.message}` : '')
     await load()
+    return !error
   }
 
   async function add(e) {
     e.preventDefault()
-    const t = title.trim()
-    if (!t) return
-    setTitle('')
-    await mutate(supabase.from('tasks').insert({ title: t }))
+    const title = draft.trim()
+    if (!title) return
+    // Keep the text in the box until it's safely saved.
+    if (await mutate(supabase.from('tasks').insert({ title }))) setDraft('')
     inputRef.current?.focus()
   }
 
-  function complete(task) {
-    setOpen((prev) => prev.filter((t) => t.id !== task.id))
-    mutate(supabase.from('tasks').update({ completed_at: new Date().toISOString() }).eq('id', task.id))
+  function setDone(task, done) {
+    const completed_at = done ? new Date().toISOString() : null
+    setTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, completed_at } : t)))
+    mutate(supabase.from('tasks').update({ completed_at }).eq('id', task.id))
   }
 
-  function reopen(task) {
-    mutate(supabase.from('tasks').update({ completed_at: null }).eq('id', task.id))
-  }
-
-  function rename(task, newTitle) {
+  function rename(task, value) {
     setEditingId(null)
-    const t = newTitle.trim()
-    if (!t || t === task.title) return
-    mutate(supabase.from('tasks').update({ title: t }).eq('id', task.id))
+    const title = value.trim()
+    if (!title || title === task.title) return
+    setTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, title } : t)))
+    mutate(supabase.from('tasks').update({ title }).eq('id', task.id))
   }
 
   function remove(task) {
-    if (window.confirm(`Delete "${task.title}"? It won't appear in your done log.`))
-      mutate(supabase.from('tasks').delete().eq('id', task.id))
+    if (window.confirm(`Delete "${task.title}"?`)) mutate(supabase.from('tasks').delete().eq('id', task.id))
   }
 
-  // Done log, filtered by keyword and grouped by local completion date.
-  const groups = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    const out = []
-    for (const t of done) {
-      if (q && !t.title.toLowerCase().includes(q)) continue
-      const day = toISO(new Date(t.completed_at))
-      if (out.length === 0 || out[out.length - 1].day !== day) out.push({ day, tasks: [] })
-      out[out.length - 1].tasks.push(t)
+  function toggleShowDone() {
+    const next = !showDone
+    setShowDone(next)
+    try {
+      localStorage.setItem(SHOW_DONE_KEY, String(next))
+    } catch {
+      /* per-device preference only */
     }
-    return out
-  }, [done, query])
+  }
 
+  if (!tasks) return <p className={error ? 'error' : 'muted'}>{error || 'Loading…'}</p>
+
+  const open = tasks.filter((t) => !t.completed_at)
+  const done = tasks
+    .filter((t) => t.completed_at)
+    .sort((a, b) => (a.completed_at < b.completed_at ? 1 : -1))
   const today = todayISO()
 
   return (
@@ -94,30 +94,14 @@ export default function Tasks() {
         <h1>To-do</h1>
       </div>
 
-      <form className="quick-add" onSubmit={add}>
-        <input
-          ref={inputRef}
-          placeholder="Add a task…"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          aria-label="New task"
-        />
-        <button className="btn primary">Add</button>
-      </form>
-      {error && <p className="error">{error}</p>}
-
-      {open === null ? (
-        <p className="muted">Loading…</p>
-      ) : open.length === 0 ? (
-        <p className="muted empty">All clear.</p>
-      ) : (
-        <ul className="task-list card">
+      <div className="card keep">
+        <ul className="keep-list">
           {open.map((t) => (
             <li key={t.id}>
-              <button className="check" onClick={() => complete(t)} aria-label={`Complete ${t.title}`} />
+              <button className="box" onClick={() => setDone(t, true)} aria-label={`Complete ${t.title}`} />
               {editingId === t.id ? (
                 <input
-                  className="inline-edit"
+                  className="keep-edit"
                   defaultValue={t.title}
                   autoFocus
                   onBlur={(e) => rename(t, e.target.value)}
@@ -127,49 +111,64 @@ export default function Tasks() {
                   }}
                 />
               ) : (
-                <span className="task-title" onClick={() => setEditingId(t.id)}>
+                <span className="keep-title" onClick={() => setEditingId(t.id)}>
                   {t.title}
                 </span>
               )}
-              <button className="icon-btn" onClick={() => remove(t)} aria-label="Delete task">
+              <button className="icon-btn keep-x" onClick={() => remove(t)} aria-label="Delete task">
                 ×
               </button>
             </li>
           ))}
+          <li className="keep-add">
+            <form onSubmit={add}>
+              <span className="plus" aria-hidden>
+                +
+              </span>
+              <input
+                ref={inputRef}
+                placeholder="List item"
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                aria-label="New task"
+              />
+            </form>
+          </li>
         </ul>
-      )}
 
-      <div className="done-head">
-        <h2 className="section-title">Done</h2>
-        <span className="muted small">{done.length} completed</span>
+        {error && <p className="error">{error}</p>}
+
+        {done.length > 0 && (
+          <>
+            <button className="keep-done-toggle" onClick={toggleShowDone} aria-expanded={showDone}>
+              <span className={`chev ${showDone ? 'open' : ''}`} aria-hidden>
+                ›
+              </span>
+              {done.length} Completed item{done.length === 1 ? '' : 's'}
+            </button>
+            {showDone && (
+              <ul className="keep-list done">
+                {done.map((t) => {
+                  const day = toISO(new Date(t.completed_at))
+                  return (
+                    <li key={t.id}>
+                      <button className="box on" onClick={() => setDone(t, false)} aria-label={`Uncheck ${t.title}`}>
+                        ✓
+                      </button>
+                      <span className="keep-title">{t.title}</span>
+                      <span className="keep-date">
+                        {day === today
+                          ? 'Today'
+                          : formatShort(day) + (day.slice(0, 4) !== today.slice(0, 4) ? `, ${day.slice(0, 4)}` : '')}
+                      </span>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </>
+        )}
       </div>
-      <input
-        type="search"
-        placeholder="Search everything you've done…"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        aria-label="Search done tasks"
-      />
-
-      {groups.length === 0 ? (
-        <p className="muted">{query ? 'No matches.' : 'Completed tasks will collect here.'}</p>
-      ) : (
-        groups.map((g) => (
-          <div key={g.day} className="done-group">
-            <h3>{g.day === today ? 'Today' : formatLong(g.day)}</h3>
-            <ul className="task-list done">
-              {g.tasks.map((t) => (
-                <li key={t.id}>
-                  <button className="check on" onClick={() => reopen(t)} aria-label={`Reopen ${t.title}`}>
-                    ✓
-                  </button>
-                  <span className="task-title">{t.title}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))
-      )}
     </section>
   )
 }

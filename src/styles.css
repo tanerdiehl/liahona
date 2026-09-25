@@ -863,3 +863,195 @@ label {
   fill: var(--muted);
   opacity: 0.55;
 }
+
+/* ---------- save status ---------- */
+.save-status {
+  font-size: 0.8rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.save-status.ok {
+  color: var(--success);
+}
+.save-status.bad {
+  color: var(--danger);
+  font-weight: 600;
+}
+@media (max-width: 700px) {
+  .topbar {
+    gap: 12px;
+  }
+  .topnav {
+    display: none;
+  }
+  .save-status {
+    margin-left: auto;
+  }
+}
+
+/* ---------- keep-style to-do ---------- */
+.card.keep {
+  padding: 8px 8px 12px;
+}
+.keep-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.keep-list li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  min-height: 42px;
+}
+.keep-list li:hover {
+  background: var(--surface-2);
+}
+.box {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border: 1.5px solid var(--muted);
+  border-radius: 3px;
+  background: none;
+  cursor: pointer;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  font-size: 0.7rem;
+  line-height: 1;
+}
+.box:hover {
+  border-color: var(--text);
+}
+.box.on {
+  border-color: var(--muted);
+  color: var(--muted);
+}
+.keep-title {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  cursor: text;
+}
+.keep-edit {
+  flex: 1;
+  padding: 2px 6px;
+}
+.keep-x {
+  opacity: 0;
+}
+.keep-list li:hover .keep-x,
+.keep-x:focus-visible {
+  opacity: 1;
+}
+@media (hover: none) {
+  .keep-x {
+    opacity: 0.5;
+  }
+}
+.keep-add form {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+.keep-add .plus {
+  width: 18px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 1.2rem;
+}
+.keep-add input {
+  border: none;
+  background: none;
+  padding: 4px 0;
+  outline: none;
+}
+.keep-add input:focus {
+  outline: none;
+}
+.keep-add:hover {
+  background: none !important;
+}
+.keep-done-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  border: none;
+  border-top: 1px solid var(--border);
+  background: none;
+  padding: 14px 8px 6px;
+  margin-top: 6px;
+  color: var(--muted);
+  cursor: pointer;
+  text-align: left;
+}
+.keep-list.done .keep-title {
+  text-decoration: line-through;
+  color: var(--muted);
+  cursor: default;
+}
+.keep-date {
+  font-size: 0.75rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* ---------- compare ---------- */
+.compare-card {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.compare-card p {
+  margin: 0;
+}
+.compare-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.compare-head h2 {
+  font-size: 1.2rem;
+}
+.compare-scroll {
+  overflow-x: auto;
+}
+.compare-table {
+  border-collapse: separate;
+  border-spacing: 2px;
+  font-size: 0.875rem;
+}
+.compare-table th,
+.compare-table td {
+  padding: 6px 10px;
+  white-space: nowrap;
+  text-align: center;
+  border-radius: 6px;
+}
+.compare-table thead th {
+  font-weight: 500;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+.compare-table tbody th {
+  text-align: left;
+  font-weight: 500;
+  position: sticky;
+  left: 0;
+  background: var(--surface);
+  z-index: 1;
+}
+.compare-table td {
+  min-width: 58px;
+  font-variant-numeric: tabular-nums;
+}
+.compare-sep > * {
+  border-top: 1px solid var(--border);
+}

@@ -1,5 +1,8 @@
+import { useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { useSaveStatus } from '../lib/saveStatus'
+import { downloadBackup } from '../lib/backup'
 
 const NAV = [
   { to: '/habits', label: 'Habits', icon: '◎' },
@@ -9,6 +12,14 @@ const NAV = [
 ]
 
 export default function Layout({ user }) {
+  const [backingUp, setBackingUp] = useState(false)
+
+  async function backup() {
+    setBackingUp(true)
+    await downloadBackup()
+    setBackingUp(false)
+  }
+
   return (
     <div className="shell">
       <header className="topbar">
@@ -20,6 +31,10 @@ export default function Layout({ user }) {
             </NavLink>
           ))}
         </nav>
+        <SaveIndicator />
+        <button className="link-btn" onClick={backup} disabled={backingUp} title="Download all your data as a file">
+          {backingUp ? 'Exporting…' : 'Backup'}
+        </button>
         <button className="link-btn" title={user.email} onClick={() => supabase.auth.signOut()}>
           Sign out
         </button>
@@ -41,4 +56,16 @@ export default function Layout({ user }) {
       </nav>
     </div>
   )
+}
+
+function SaveIndicator() {
+  const { pending, error } = useSaveStatus()
+  if (pending > 0) return <span className="save-status">Saving…</span>
+  if (error)
+    return (
+      <span className="save-status bad" title={error}>
+        ⚠ Not saved
+      </span>
+    )
+  return <span className="save-status ok">✓ Saved</span>
 }

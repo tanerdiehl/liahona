@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { track } from '../lib/saveStatus'
 import { addDays, formatLong, formatShort, todayISO } from '../lib/dates'
 
 export const PROTEIN_MIN = 119
@@ -56,16 +57,17 @@ export default function Protein() {
     const n = Number(grams.replace(',', '.'))
     if (!(n > 0 && n < 1000)) return setError('Enter grams between 1 and 999.')
     setError('')
-    setGrams('')
-    const { error } = await supabase.from('protein_entries').insert({ date, grams: round(n) })
-    if (error) setError(error.message)
+    const { error } = await track(supabase.from('protein_entries').insert({ date, grams: round(n) }))
+    // Only clear the box once it's safely saved, so nothing is lost on failure.
+    if (error) setError(`Not saved — ${error.message}`)
+    else setGrams('')
     await Promise.all([loadDay(), loadHistory()])
     inputRef.current?.focus()
   }
 
   async function remove(id) {
     setEntries((prev) => prev.filter((e) => e.id !== id))
-    const { error } = await supabase.from('protein_entries').delete().eq('id', id)
+    const { error } = await track(supabase.from('protein_entries').delete().eq('id', id))
     if (error) setError(error.message)
     await Promise.all([loadDay(), loadHistory()])
   }

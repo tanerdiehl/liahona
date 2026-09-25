@@ -2,6 +2,7 @@ import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } f
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { fetchHabits, seedIfNeeded } from '../lib/habits'
+import { track } from '../lib/saveStatus'
 import {
   addDays,
   dateRange,
@@ -90,12 +91,13 @@ export default function Habits({ user }) {
     desired.current[k] = next
     queues.current[k] = (queues.current[k] ?? Promise.resolve()).then(async () => {
       const want = desired.current[k]
-      const { error } =
+      const { error } = await track(
         want === 'none'
-          ? await supabase.from('habit_logs').delete().eq('habit_id', habitId).eq('date', date)
-          : await supabase
+          ? supabase.from('habit_logs').delete().eq('habit_id', habitId).eq('date', date)
+          : supabase
               .from('habit_logs')
-              .upsert({ habit_id: habitId, date, status: want, updated_at: new Date().toISOString() })
+              .upsert({ habit_id: habitId, date, status: want, updated_at: new Date().toISOString() }),
+      )
       if (error) {
         setError(`Couldn't save — ${error.message}`)
         loadLogs()

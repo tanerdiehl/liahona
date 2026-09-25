@@ -66,7 +66,23 @@ export function habitStats(habit, logs, today = todayISO()) {
         return { week: w, done, total: days.length, pct: days.length ? done / days.length : null }
       })
 
-  return { weekly, start, windows, currentStreak, longest, trend }
+  // Completion rate per calendar month ('YYYY-MM') and per year ('YYYY'),
+  // for month-over-month and year-over-year comparison. Weekly habits are
+  // bucketed by the month their week starts in.
+  const bucket = (len) => {
+    const out = new Map()
+    for (const u of counted) {
+      const k = u.slice(0, len)
+      const b = out.get(k) ?? { done: 0, total: 0 }
+      b.total++
+      if (isDone(u)) b.done++
+      out.set(k, b)
+    }
+    for (const b of out.values()) b.pct = b.done / b.total
+    return out
+  }
+
+  return { weekly, start, windows, currentStreak, longest, trend, monthly: bucket(7), yearly: bucket(4) }
 }
 
 export const pctLabel = (r) => (r == null ? '—' : `${Math.round(r.pct * 100)}%`)
