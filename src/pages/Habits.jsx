@@ -2,20 +2,31 @@ import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } f
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { fetchHabits, seedIfNeeded } from '../lib/habits'
-import { addDays, dateRange, formatShort, fromISO, todayISO, weekdayShort } from '../lib/dates'
+import {
+  addDays,
+  dateRange,
+  formatShort,
+  fromISO,
+  startOfWeek,
+  todayISO,
+  weekdayShort,
+  weekRange,
+} from '../lib/dates'
 
 const DAYS_SHOWN = 14
+const WEEKS_SHOWN = 8
 const NEXT_STATUS = { none: 'done', done: 'missed', missed: 'none' }
 const key = (habitId, date) => `${habitId}|${date}`
+const monthFmt = new Intl.DateTimeFormat(undefined, { month: 'short' })
 
 export default function Habits({ user }) {
   const today = todayISO()
+  const thisWeek = startOfWeek(today)
   const [endDate, setEndDate] = useState(today)
   const [habits, setHabits] = useState(null)
   const [logs, setLogs] = useState({})
   const [expanded, setExpanded] = useState(() => new Set())
   const [error, setError] = useState('')
-  const scrollRef = useRef(null)
 
   // Per-cell write queue so rapid taps always land in order and the
   // final saved state matches what's on screen.
@@ -24,6 +35,9 @@ export default function Habits({ user }) {
 
   const startDate = addDays(endDate, -(DAYS_SHOWN - 1))
   const dates = dateRange(startDate, endDate)
+  const lastWeek = startOfWeek(endDate)
+  const weeks = weekRange(addDays(lastWeek, -7 * (WEEKS_SHOWN - 1)), lastWeek)
+  const rangeStart = weeks[0] < startDate ? weeks[0] : startDate
 
   useEffect(() => {
     let cancelled = false
@@ -45,13 +59,13 @@ export default function Habits({ user }) {
     const { data, error } = await supabase
       .from('habit_logs')
       .select('habit_id,date,status')
-      .gte('date', startDate)
+      .gte('date', rangeStart)
       .lte('date', endDate)
     if (error) return setError(error.message)
     const map = {}
     for (const r of data) map[key(r.habit_id, r.date)] = r.status
     setLogs(map)
-  }, [startDate, endDate])
+  }, [rangeStart, endDate])
 
   useEffect(() => {
     loadLogs()
@@ -63,12 +77,6 @@ export default function Habits({ user }) {
     document.addEventListener('visibilitychange', onVisible)
     return () => document.removeEventListener('visibilitychange', onVisible)
   }, [loadLogs])
-
-  // On narrow screens, start scrolled to the most recent day.
-  useLayoutEffect(() => {
-    const el = scrollRef.current
-    if (el) el.scrollLeft = el.scrollWidth
-  }, [habits, endDate])
 
   function cycle(habitId, date) {
     const k = key(habitId, date)
@@ -106,7 +114,27 @@ export default function Habits({ user }) {
   if (error && !habits) return <p className="error">{error}</p>
   if (!habits) return <p className="muted">Loading…</p>
 
+  const daily = habits.filter((h) => h.frequency !== 'weekly')
+  const weekly = habits.filter((h) => h.frequency === 'weekly')
   const atToday = endDate >= today
+  const allOpen = habits.length > 0 && habits.every((h) => expanded.has(h.id))
+
+  const dayColumns = dates.map((d) => ({
+    id: d,
+    top: weekdayShort(d).slice(0, 2),
+    bottom: fromISO(d).getDate(),
+    current: d === today,
+    label: formatShort(d),
+  }))
+  const weekColumns = weeks.map((w) => ({
+    id: w,
+    top: monthFmt.format(fromISO(w)),
+    bottom: fromISO(w).getDate(),
+    current: w === thisWeek,
+    label: `week of ${formatShort(w)}`,
+  }))
+
+  const gridProps = { logs, expanded, onToggle: toggleExpanded, onCycle: cycle }
 
   return (
     <section>
@@ -137,73 +165,103 @@ export default function Habits({ user }) {
             Today
           </button>
         )}
+        <span className="grow" />
+        {habits.length > 0 && (
+          <button
+            className="btn ghost small"
+            onClick={() => setExpanded(allOpen ? new Set() : new Set(habits.map((h) => h.id)))}
+          >
+            {allOpen ? 'Collapse all' : 'Expand all'}
+          </button>
+        )}
       </div>
 
       {error && <p className="error">{error}</p>}
 
-      {habits.length === 0 ? (
+      {habits.length === 0 && (
         <p className="muted">
           No active habits. <Link to="/habits/manage">Add one</Link>.
         </p>
-      ) : (
-        <div className="grid-scroll" ref={scrollRef}>
-          <table className="habit-grid">
-            <thead>
-              <tr>
-                <th className="habit-col" />
-                {dates.map((d) => (
-                  <th key={d} className={d === today ? 'is-today' : ''}>
-                    <span className="dow">{weekdayShort(d).slice(0, 2)}</span>
-                    <span className="dom">{fromISO(d).getDate()}</span>
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {habits.map((h) => {
-                const open = expanded.has(h.id)
-                return (
-                  <Fragment key={h.id}>
-                    <tr>
-                      <th className="habit-col" scope="row">
-                        <button className="habit-name" onClick={() => toggleExpanded(h.id)} aria-expanded={open}>
-                          <span className="dot" style={{ background: h.color }} />
-                          <span className="name-text">{h.name}</span>
-                          <span className={`chev ${open ? 'open' : ''}`} aria-hidden>
-                            ›
-                          </span>
-                        </button>
-                      </th>
-                      {dates.map((d) => {
-                        const status = logs[key(h.id, d)] ?? 'none'
-                        return (
-                          <td key={d} className={d === today ? 'is-today' : ''}>
-                            <button
-                              className={`cell ${status}`}
-                              onClick={() => cycle(h.id, d)}
-                              aria-label={`${h.name}, ${formatShort(d)}: ${status === 'none' ? 'blank' : status}`}
-                            >
-                              {status === 'done' ? '✓' : status === 'missed' ? '✕' : ''}
-                            </button>
-                          </td>
-                        )
-                      })}
-                    </tr>
-                    {open && (
-                      <tr className="detail-row">
-                        <td colSpan={dates.length + 1}>
-                          <HabitDetail habit={h} />
-                        </td>
-                      </tr>
-                    )}
-                  </Fragment>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
+      )}
+
+      {daily.length > 0 && <HabitGrid habits={daily} columns={dayColumns} scrollKey={endDate} {...gridProps} />}
+
+      {weekly.length > 0 && (
+        <>
+          <h2 className="section-title">Weekly</h2>
+          <HabitGrid habits={weekly} columns={weekColumns} scrollKey={endDate} weekly {...gridProps} />
+        </>
       )}
     </section>
+  )
+}
+
+function HabitGrid({ habits, columns, logs, expanded, onToggle, onCycle, scrollKey, weekly }) {
+  const scrollRef = useRef(null)
+
+  // On narrow screens, start scrolled to the most recent column.
+  useLayoutEffect(() => {
+    const el = scrollRef.current
+    if (el) el.scrollLeft = el.scrollWidth
+  }, [scrollKey, habits.length])
+
+  return (
+    <div className="grid-scroll" ref={scrollRef}>
+      <table className={`habit-grid ${weekly ? 'weekly' : ''}`}>
+        <thead>
+          <tr>
+            <th className="habit-col" />
+            {columns.map((c) => (
+              <th key={c.id} className={c.current ? 'is-today' : ''}>
+                <span className="dow">{c.top}</span>
+                <span className="dom">{c.bottom}</span>
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {habits.map((h) => {
+            const open = expanded.has(h.id)
+            return (
+              <Fragment key={h.id}>
+                <tr>
+                  <th className="habit-col" scope="row">
+                    <button className="habit-name" onClick={() => onToggle(h.id)} aria-expanded={open}>
+                      <span className="dot" style={{ background: h.color }} />
+                      <span className="name-text">{h.name}</span>
+                      <span className={`chev ${open ? 'open' : ''}`} aria-hidden>
+                        ›
+                      </span>
+                    </button>
+                  </th>
+                  {columns.map((c) => {
+                    const status = logs[key(h.id, c.id)] ?? 'none'
+                    return (
+                      <td key={c.id} className={c.current ? 'is-today' : ''}>
+                        <button
+                          className={`cell ${status}`}
+                          onClick={() => onCycle(h.id, c.id)}
+                          aria-label={`${h.name}, ${c.label}: ${status === 'none' ? 'blank' : status}`}
+                        >
+                          {status === 'done' ? '✓' : status === 'missed' ? '✕' : ''}
+                        </button>
+                      </td>
+                    )
+                  })}
+                </tr>
+                {open && (
+                  <tr className="detail-row">
+                    <td colSpan={columns.length + 1}>
+                      <HabitDetail habit={h} />
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
+            )
+          })}
+        </tbody>
+      </table>
+    </div>
   )
 }
 

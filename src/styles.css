@@ -470,7 +470,47 @@ label {
   }
 }
 
+/* keep the name column the same width in the daily and weekly grids */
+.habit-grid .habit-col {
+  width: 220px;
+}
+@media (max-width: 700px) {
+  .habit-grid .habit-col {
+    width: 140px;
+  }
+}
+
 /* ---------- manage habits ---------- */
+.tag {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  background: var(--surface-2);
+  padding: 2px 6px;
+  border-radius: 6px;
+  margin-left: 6px;
+  vertical-align: 2px;
+}
+.segmented {
+  display: inline-flex;
+  background: var(--surface-2);
+  border-radius: 10px;
+  padding: 3px;
+}
+.segmented button {
+  border: none;
+  background: none;
+  padding: 5px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--muted);
+}
+.segmented button.on {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow);
+}
 .habit-list {
   list-style: none;
   padding: 0;
@@ -642,4 +682,184 @@ label {
 }
 .hit-mark {
   color: var(--success);
+}
+
+/* ---------- to-do ---------- */
+.task-list {
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 4px 16px;
+}
+.task-list li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+}
+.task-list.card li + li {
+  border-top: 1px solid var(--border);
+}
+.task-title {
+  flex: 1;
+  min-width: 0;
+  cursor: text;
+  overflow-wrap: anywhere;
+}
+.task-list.done {
+  padding: 0;
+  margin: 0;
+}
+.task-list.done .task-title {
+  color: var(--muted);
+  cursor: default;
+}
+.check {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1.5px solid var(--muted);
+  background: none;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  font-size: 0.75rem;
+  padding: 0;
+}
+.check:hover {
+  border-color: var(--success);
+  background: var(--success-soft);
+}
+.check.on {
+  background: var(--success);
+  border-color: var(--success);
+  color: #fff;
+}
+.inline-edit {
+  flex: 1;
+  padding: 4px 8px;
+}
+.empty {
+  margin-top: 16px;
+}
+.done-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.done-group h3 {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 20px 0 4px;
+}
+
+/* ---------- analytics ---------- */
+.toggle {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+.toggle input {
+  width: auto;
+}
+.analytics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 460px), 1fr));
+  gap: 16px;
+}
+.stat-card {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding: 18px 20px;
+}
+.stat-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.stat-head h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+.stat-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+}
+.stat {
+  display: grid;
+}
+.stat-value {
+  font-family: var(--serif);
+  font-size: 1.5rem;
+  line-height: 1.2;
+}
+.stat-label {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+.chart-title {
+  margin: 8px 0 0;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.chart-wrap {
+  position: relative;
+}
+.chart-tip {
+  position: absolute;
+  transform: translate(-50%, calc(-100% - 6px));
+  background: var(--text);
+  color: var(--bg);
+  font-size: 0.75rem;
+  padding: 4px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 5;
+}
+.chart-label {
+  font-size: 10px;
+  fill: var(--muted);
+  font-family: var(--font);
+}
+.grid-line {
+  stroke: var(--border);
+  stroke-dasharray: 2 3;
+}
+.axis-line {
+  stroke: var(--border);
+}
+.trend-svg,
+.protein-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.heatmap-scroll {
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+.heatmap-scroll svg {
+  display: block;
+}
+.target-band {
+  fill: var(--success-soft);
+}
+.bar-hit {
+  fill: var(--success);
+}
+.bar-miss {
+  fill: var(--muted);
+  opacity: 0.55;
 }

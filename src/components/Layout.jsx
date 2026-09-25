@@ -4,6 +4,8 @@ import { supabase } from '../lib/supabase'
 const NAV = [
   { to: '/habits', label: 'Habits', icon: '◎' },
   { to: '/protein', label: 'Protein', icon: '◐' },
+  { to: '/todo', label: 'To-do', icon: '☐' },
+  { to: '/analytics', label: 'Analytics', icon: '▥' },
 ]
 
 export default function Layout({ user }) {

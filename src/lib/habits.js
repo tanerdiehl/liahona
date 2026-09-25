@@ -39,6 +39,7 @@ export const DEFAULT_HABITS = [
   {
     name: 'Weekly planning',
     color: '#378ADD',
+    frequency: 'weekly',
     why: 'I perform better when I plan.',
     system: 'Daily list, Sunday planning session.',
     minimum: 'Open it once/week.',
@@ -53,6 +54,17 @@ export const DEFAULT_HABITS = [
     stretch: 'Asleep by 10:30, awake 6:30, 8–9 hrs.',
   },
 ]
+
+// Supabase caps each response at 1000 rows; page through for full history.
+export async function fetchAll(buildQuery, pageSize = 1000) {
+  const rows = []
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await buildQuery().range(from, from + pageSize - 1)
+    if (error) throw error
+    rows.push(...data)
+    if (data.length < pageSize) return rows
+  }
+}
 
 export async function fetchHabits() {
   const { data, error } = await supabase

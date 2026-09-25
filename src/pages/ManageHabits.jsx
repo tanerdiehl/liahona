@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { fetchHabits, PALETTE } from '../lib/habits'
 
-const EMPTY = { name: '', color: PALETTE[0].value, why: '', system: '', minimum: '', stretch: '' }
+const EMPTY = { name: '', color: PALETTE[0].value, frequency: 'daily', why: '', system: '', minimum: '', stretch: '' }
 
 export default function ManageHabits() {
   const [habits, setHabits] = useState(null)
@@ -34,6 +34,7 @@ export default function ManageHabits() {
     const fields = {
       name: form.name.trim(),
       color: form.color,
+      frequency: form.frequency,
       why: form.why,
       system: form.system,
       minimum: form.minimum,
@@ -102,7 +103,9 @@ export default function ManageHabits() {
             ) : (
               <div className="habit-row">
                 <span className="dot" style={{ background: h.color }} />
-                <span className="grow">{h.name}</span>
+                <span className="grow">
+                  {h.name} {h.frequency === 'weekly' && <span className="tag">Weekly</span>}
+                </span>
                 <button className="icon-btn" onClick={() => move(h, -1)} disabled={i === 0} aria-label="Move up">
                   ↑
                 </button>
@@ -187,6 +190,25 @@ function HabitForm({ initial, onSave, onCancel }) {
         Name
         <input value={form.name} onChange={set('name')} required autoFocus />
       </label>
+
+      <fieldset>
+        <legend>Track</legend>
+        <div className="segmented">
+          {[
+            ['daily', 'Daily'],
+            ['weekly', 'Weekly'],
+          ].map(([value, label]) => (
+            <button
+              type="button"
+              key={value}
+              className={form.frequency === value ? 'on' : ''}
+              onClick={() => setForm({ ...form, frequency: value })}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </fieldset>
 
       <fieldset>
         <legend>Color</legend>

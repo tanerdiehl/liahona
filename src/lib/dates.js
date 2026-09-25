@@ -29,10 +29,28 @@ export function dateRange(startISO, endISO) {
   return out
 }
 
+// Weeks start on Sunday (your planning day).
+export function startOfWeek(iso) {
+  return addDays(iso, -fromISO(iso).getDay())
+}
+
+export function startOfMonth(iso) {
+  return iso.slice(0, 8) + '01'
+}
+
+export function weekRange(firstWeekStart, lastWeekStart) {
+  const out = []
+  for (let d = firstWeekStart; d <= lastWeekStart; d = addDays(d, 7)) out.push(d)
+  return out
+}
+
 const weekdayFmt = new Intl.DateTimeFormat(undefined, { weekday: 'short' })
 const longFmt = new Intl.DateTimeFormat(undefined, { weekday: 'long', month: 'long', day: 'numeric' })
+const longYearFmt = new Intl.DateTimeFormat(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
 const shortFmt = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' })
 
 export const weekdayShort = (iso) => weekdayFmt.format(fromISO(iso))
-export const formatLong = (iso) => longFmt.format(fromISO(iso))
+// Year is shown only for dates outside the current year.
+export const formatLong = (iso) =>
+  (iso.slice(0, 4) === todayISO().slice(0, 4) ? longFmt : longYearFmt).format(fromISO(iso))
 export const formatShort = (iso) => shortFmt.format(fromISO(iso))

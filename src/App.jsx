@@ -7,6 +7,8 @@ import Layout from './components/Layout'
 import Habits from './pages/Habits'
 import ManageHabits from './pages/ManageHabits'
 import Protein from './pages/Protein'
+import Tasks from './pages/Tasks'
+import Analytics from './pages/Analytics'
 
 export default function App() {
   // undefined = still checking stored session, null = signed out
@@ -32,6 +34,8 @@ export default function App() {
           <Route path="habits" element={<Habits user={session.user} />} />
           <Route path="habits/manage" element={<ManageHabits />} />
           <Route path="protein" element={<Protein />} />
+          <Route path="todo" element={<Tasks />} />
+          <Route path="analytics" element={<Analytics />} />
           <Route path="*" element={<Navigate to="/habits" replace />} />
         </Route>
       </Routes>
