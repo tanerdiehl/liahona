@@ -1,18 +1,31 @@
 import { useState } from 'react'
-import { NavLink, Outlet } from 'react-router-dom'
+import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useSaveStatus } from '../lib/saveStatus'
 import { downloadBackup } from '../lib/backup'
 
+// Desktop top nav shows everything; the phone tab bar keeps the daily
+// essentials and tucks the rest under "More".
 const NAV = [
+  { to: '/', label: 'Today', end: true },
+  { to: '/habits', label: 'Habits' },
+  { to: '/protein', label: 'Protein' },
+  { to: '/todo', label: 'To-do' },
+  { to: '/goals', label: 'Goals' },
+  { to: '/journal', label: 'Journal' },
+  { to: '/analytics', label: 'Analytics' },
+]
+const TABS = [
+  { to: '/', label: 'Today', icon: '☼', end: true },
   { to: '/habits', label: 'Habits', icon: '◎' },
-  { to: '/protein', label: 'Protein', icon: '◐' },
   { to: '/todo', label: 'To-do', icon: '☐' },
-  { to: '/analytics', label: 'Analytics', icon: '▥' },
+  { to: '/journal', label: 'Journal', icon: '✎' },
+  { to: '/more', label: 'More', icon: '⋯', also: ['/protein', '/goals', '/analytics', '/habits/manage'] },
 ]
 
 export default function Layout({ user }) {
   const [backingUp, setBackingUp] = useState(false)
+  const { pathname } = useLocation()
 
   async function backup() {
     setBackingUp(true)
@@ -26,16 +39,16 @@ export default function Layout({ user }) {
         <span className="brand">Liahona</span>
         <nav className="topnav">
           {NAV.map((n) => (
-            <NavLink key={n.to} to={n.to}>
+            <NavLink key={n.to} to={n.to} end={n.end}>
               {n.label}
             </NavLink>
           ))}
         </nav>
         <SaveIndicator />
-        <button className="link-btn" onClick={backup} disabled={backingUp} title="Download all your data as a file">
+        <button className="link-btn desktop-only" onClick={backup} disabled={backingUp} title="Download all your data as a file">
           {backingUp ? 'Exporting…' : 'Backup'}
         </button>
-        <button className="link-btn" title={user.email} onClick={() => supabase.auth.signOut()}>
+        <button className="link-btn desktop-only" title={user.email} onClick={() => supabase.auth.signOut()}>
           Sign out
         </button>
       </header>
@@ -45,8 +58,15 @@ export default function Layout({ user }) {
       </main>
 
       <nav className="tabbar">
-        {NAV.map((n) => (
-          <NavLink key={n.to} to={n.to}>
+        {TABS.map((n) => (
+          <NavLink
+            key={n.to}
+            to={n.to}
+            end={n.end}
+            className={({ isActive }) =>
+              isActive || n.also?.some((p) => pathname === p || pathname.startsWith(p + '/')) ? 'active' : ''
+            }
+          >
             <span className="tab-icon" aria-hidden>
               {n.icon}
             </span>

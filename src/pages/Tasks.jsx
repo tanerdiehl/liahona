@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { fetchAll } from '../lib/habits'
 import { track } from '../lib/saveStatus'
@@ -18,6 +19,7 @@ function readShowDone() {
 // through, under a collapsible "Completed items" section.
 export default function Tasks() {
   const [tasks, setTasks] = useState(null)
+  const [goalTitles, setGoalTitles] = useState({})
   const [draft, setDraft] = useState('')
   const [editingId, setEditingId] = useState(null)
   const [showDone, setShowDone] = useState(readShowDone)
@@ -30,6 +32,9 @@ export default function Tasks() {
     } catch (e) {
       setError(e.message)
     }
+    // Goal names for the small goal tag; optional.
+    const { data } = await supabase.from('goals').select('id,title')
+    if (data) setGoalTitles(Object.fromEntries(data.map((g) => [g.id, g.title])))
   }, [])
 
   useEffect(() => {
@@ -114,6 +119,11 @@ export default function Tasks() {
                 <span className="keep-title" onClick={() => setEditingId(t.id)}>
                   {t.title}
                 </span>
+              )}
+              {goalTitles[t.goal_id] && (
+                <Link to={`/goals/${t.goal_id}`} className="chip goal-chip" title="Linked goal">
+                  {goalTitles[t.goal_id]}
+                </Link>
               )}
               <button className="icon-btn keep-x" onClick={() => remove(t)} aria-label="Delete task">
                 ×

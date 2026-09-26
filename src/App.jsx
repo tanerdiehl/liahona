@@ -4,11 +4,16 @@ import { isConfigured, supabase } from './lib/supabase'
 import Login from './pages/Login'
 import SetupNeeded from './pages/SetupNeeded'
 import Layout from './components/Layout'
+import Dashboard from './pages/Dashboard'
 import Habits from './pages/Habits'
 import ManageHabits from './pages/ManageHabits'
 import Protein from './pages/Protein'
 import Tasks from './pages/Tasks'
+import Goals from './pages/Goals'
+import GoalDetail from './pages/GoalDetail'
+import Journal from './pages/Journal'
 import Analytics from './pages/Analytics'
+import More from './pages/More'
 
 export default function App() {
   // undefined = still checking stored session, null = signed out
@@ -25,18 +30,24 @@ export default function App() {
   if (session === undefined) return <div className="splash">Liahona</div>
   if (!session) return <Login />
 
+  const user = session.user
+
   // HashRouter (#/habits) works on GitHub Pages without server rewrites.
   return (
     <HashRouter>
       <Routes>
-        <Route element={<Layout user={session.user} />}>
-          <Route index element={<Navigate to="/habits" replace />} />
-          <Route path="habits" element={<Habits user={session.user} />} />
+        <Route element={<Layout user={user} />}>
+          <Route index element={<Dashboard user={user} />} />
+          <Route path="habits" element={<Habits user={user} />} />
           <Route path="habits/manage" element={<ManageHabits />} />
           <Route path="protein" element={<Protein />} />
           <Route path="todo" element={<Tasks />} />
+          <Route path="goals" element={<Goals />} />
+          <Route path="goals/:id" element={<GoalDetail />} />
+          <Route path="journal" element={<Journal />} />
           <Route path="analytics" element={<Analytics />} />
-          <Route path="*" element={<Navigate to="/habits" replace />} />
+          <Route path="more" element={<More user={user} />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>
     </HashRouter>

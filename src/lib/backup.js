@@ -2,7 +2,7 @@ import { supabase } from './supabase'
 import { fetchAll } from './habits'
 import { todayISO } from './dates'
 
-const TABLES = ['habits', 'habit_logs', 'protein_entries', 'tasks']
+const TABLES = ['habits', 'habit_logs', 'protein_entries', 'tasks', 'goals', 'goal_items', 'journal_entries']
 
 // Downloads every row you own as one JSON file — a copy of your data that
 // lives outside Supabase.

@@ -5,11 +5,15 @@ import { habitStats, pctLabel } from '../lib/stats'
 import { addDays, todayISO } from '../lib/dates'
 import { Heatmap, ProteinChart, TrendBars } from '../components/Charts'
 import { PROTEIN_MAX, PROTEIN_MIN } from './Protein'
+import { Link } from 'react-router-dom'
+import { fetchGoals, TIERS } from '../lib/goals'
+import GoalProgress from '../components/GoalProgress'
 
 export default function Analytics() {
   const [habits, setHabits] = useState(null)
   const [logs, setLogs] = useState(null) // Map habitId -> Map(date -> status)
   const [protein, setProtein] = useState(null) // Map date -> total grams
+  const [goals, setGoals] = useState(null)
   const [showArchived, setShowArchived] = useState(false)
   const [error, setError] = useState('')
 
@@ -34,6 +38,9 @@ export default function Analytics() {
       } catch (e) {
         setError(e.message)
       }
+      fetchGoals()
+        .then(setGoals)
+        .catch(() => setGoals([]))
     })()
   }, [])
 
@@ -86,7 +93,56 @@ export default function Analytics() {
 
       <h2 className="section-title">Protein</h2>
       <ProteinSummary totals={protein} />
+
+      <h2 className="section-title">Goals</h2>
+      <GoalsSummary goals={goals} />
     </section>
+  )
+}
+
+function GoalsSummary({ goals }) {
+  if (!goals) return <p className="muted">Loading…</p>
+  if (goals.length === 0)
+    return (
+      <p className="muted">
+        No goals yet. <Link to="/goals">Add one</Link>.
+      </p>
+    )
+  const achieved = goals.filter((g) => g.completed_at)
+  return (
+    <article className="card stat-card">
+      <div className="stat-row">
+        {TIERS.map((t) => (
+          <div key={t.id} className="stat">
+            <span className="stat-value">{goals.filter((g) => g.tier === t.id && !g.completed_at).length}</span>
+            <span className="stat-label">Active {t.label.toLowerCase()}</span>
+          </div>
+        ))}
+        <div className="stat">
+          <span className="stat-value">{achieved.length}</span>
+          <span className="stat-label">Achieved</span>
+        </div>
+      </div>
+      {TIERS.map((t) => {
+        const list = goals.filter((g) => g.tier === t.id)
+        if (list.length === 0) return null
+        return (
+          <div key={t.id}>
+            <h4 className="chart-title">{t.label}</h4>
+            <ul className="dash-goal-list">
+              {list.map((g) => (
+                <li key={g.id}>
+                  <Link to={`/goals/${g.id}`}>
+                    <span className="goal-title">{g.title}</span>
+                    <GoalProgress goal={g} />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )
+      })}
+    </article>
   )
 }
 

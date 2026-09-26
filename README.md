@@ -8,8 +8,8 @@ React + Vite front end, Supabase for login and data.
 1. Go to <https://supabase.com>, sign up (free), and click **New project**.
    Pick any name (e.g. `liahona`), set a database password (save it in your
    password manager; the app doesn't need it), choose the region closest to you.
-2. When the project is ready, open **SQL Editor → New query**, paste the whole
-   contents of `supabase/001_phase1.sql`, and click **Run**.
+2. When the project is ready, open **SQL Editor → New query** and run each file
+   in `supabase/` in order (`001_…`, `002_…`, `003_…`), one at a time.
 3. Create your login: **Authentication → Users → Add user → Create new user**.
    Enter your email and a password, and tick **Auto Confirm User**.
 4. Lock the door: **Authentication → Sign In / Providers** (or **Settings**)
@@ -37,6 +37,18 @@ Then open <http://localhost:5173>.
 | `habits`          | Name, color, why/system/minimum/stretch, order, archived    |
 | `habit_logs`      | One row per habit per day: `done` or `missed` (no row = blank) |
 | `protein_entries` | Each quick-add: date + grams                                |
+| `tasks`           | To-dos; `completed_at` set = in the permanent done log; optional `goal_id` |
+| `goals`           | Medium/long-term goals with why + checklist/percent/status progress |
+| `goal_items`      | Checklist steps for a goal                                  |
+| `journal_entries` | Dated free-text entries                                     |
+
+Habits can also point at a goal (`habits.goal_id`). The **Backup** button
+downloads every table as one JSON file.
+
+## Deploying
+
+Every push to `main` builds and publishes to
+<https://tanerdiehl.github.io/liahona/> via `.github/workflows/deploy.yml`.
 
 Every table uses row-level security, so a signed-in user can only read
 and write their own rows.

@@ -27,6 +27,7 @@ export default function Habits({ user }) {
   const [habits, setHabits] = useState(null)
   const [logs, setLogs] = useState({})
   const [expanded, setExpanded] = useState(() => new Set())
+  const [goalTitles, setGoalTitles] = useState({})
   const [error, setError] = useState('')
 
   // Per-cell write queue so rapid taps always land in order and the
@@ -50,6 +51,9 @@ export default function Habits({ user }) {
       } catch (e) {
         if (!cancelled) setError(e.message)
       }
+      // Goal names for the "builds toward" line; optional, so errors are ignored.
+      const { data } = await supabase.from('goals').select('id,title')
+      if (!cancelled && data) setGoalTitles(Object.fromEntries(data.map((g) => [g.id, g.title])))
     })()
     return () => {
       cancelled = true
@@ -136,7 +140,7 @@ export default function Habits({ user }) {
     label: `week of ${formatShort(w)}`,
   }))
 
-  const gridProps = { logs, expanded, onToggle: toggleExpanded, onCycle: cycle }
+  const gridProps = { logs, expanded, goalTitles, onToggle: toggleExpanded, onCycle: cycle }
 
   return (
     <section>
@@ -198,7 +202,7 @@ export default function Habits({ user }) {
   )
 }
 
-function HabitGrid({ habits, columns, logs, expanded, onToggle, onCycle, scrollKey, weekly }) {
+function HabitGrid({ habits, columns, logs, expanded, goalTitles, onToggle, onCycle, scrollKey, weekly }) {
   const scrollRef = useRef(null)
 
   // On narrow screens, start scrolled to the most recent column.
@@ -254,7 +258,7 @@ function HabitGrid({ habits, columns, logs, expanded, onToggle, onCycle, scrollK
                 {open && (
                   <tr className="detail-row">
                     <td colSpan={columns.length + 1}>
-                      <HabitDetail habit={h} />
+                      <HabitDetail habit={h} goalTitle={goalTitles[h.goal_id]} />
                     </td>
                   </tr>
                 )}
@@ -267,7 +271,7 @@ function HabitGrid({ habits, columns, logs, expanded, onToggle, onCycle, scrollK
   )
 }
 
-function HabitDetail({ habit }) {
+function HabitDetail({ habit, goalTitle }) {
   const fields = [
     ['Why', habit.why],
     ['System', habit.system],
@@ -290,6 +294,11 @@ function HabitDetail({ habit }) {
             </div>
           ))}
         </dl>
+      )}
+      {goalTitle && (
+        <p className="builds-toward">
+          Builds toward <Link to={`/goals/${habit.goal_id}`}>{goalTitle}</Link>
+        </p>
       )}
     </div>
   )
