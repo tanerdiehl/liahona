@@ -75,8 +75,9 @@ function TaskRow({ task, api, goalTitle }) {
           autoFocus
           onBlur={(e) => {
             setEditing(false)
+            // Empty is allowed — blank items work as spacers.
             const title = e.target.value.trim()
-            if (title && title !== task.title) api.rename(task, title)
+            if (title !== task.title) api.rename(task, title)
           }}
           onKeyDown={(e) => {
             if (e.key === 'Enter') e.currentTarget.blur()
@@ -84,7 +85,7 @@ function TaskRow({ task, api, goalTitle }) {
           }}
         />
       ) : (
-        <span className="keep-title" onClick={() => !task.pending && setEditing(true)}>
+        <span className={`keep-title ${task.title ? '' : 'blank'}`} onClick={() => !task.pending && setEditing(true)}>
           {task.title}
         </span>
       )}
@@ -96,7 +97,7 @@ function TaskRow({ task, api, goalTitle }) {
       <button
         className="icon-btn keep-x"
         disabled={task.pending}
-        onClick={() => window.confirm(`Delete "${task.title}"?`) && api.remove(task)}
+        onClick={() => (!task.title || window.confirm(`Delete "${task.title}"?`)) && api.remove(task)}
         aria-label="Delete task"
       >
         ×
@@ -112,8 +113,8 @@ function AddRow({ api }) {
     <form
       onSubmit={async (e) => {
         e.preventDefault()
+        // Enter on an empty line adds a blank spacer item, like Google Keep.
         const title = draft.trim()
-        if (!title) return
         // Clear immediately so the next item can be typed right away; the
         // text comes back if the save fails.
         setDraft('')

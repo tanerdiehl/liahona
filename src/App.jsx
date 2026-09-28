@@ -14,6 +14,8 @@ import GoalDetail from './pages/GoalDetail'
 import Journal from './pages/Journal'
 import Analytics from './pages/Analytics'
 import More from './pages/More'
+import WorkoutHome from './workout/WorkoutHome'
+import WorkoutPage from './workout/WorkoutPage'
 
 export default function App() {
   // undefined = still checking stored session, null = signed out
@@ -46,6 +48,8 @@ export default function App() {
           <Route path="goals/:id" element={<GoalDetail />} />
           <Route path="journal" element={<Journal />} />
           <Route path="analytics" element={<Analytics />} />
+          <Route path="workout" element={<WorkoutHome />} />
+          <Route path="workout/:id" element={<WorkoutPage />} />
           <Route path="more" element={<More user={user} />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

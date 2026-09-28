@@ -13,6 +13,9 @@ export default function More({ user }) {
       </div>
       <ul className="more-list card">
         <li>
+          <Link to="/journal">Journal</Link>
+        </li>
+        <li>
           <Link to="/protein">Protein</Link>
         </li>
         <li>

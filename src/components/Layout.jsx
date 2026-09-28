@@ -4,12 +4,14 @@ import { supabase } from '../lib/supabase'
 import { useSaveStatus } from '../lib/saveStatus'
 import { downloadBackup } from '../lib/backup'
 import Toaster from './Toaster'
+import ActiveWorkoutBar from '../workout/ActiveWorkoutBar'
 
 // Desktop top nav shows everything; the phone tab bar keeps the daily
 // essentials and tucks the rest under "More".
 const NAV = [
   { to: '/', label: 'Today', end: true },
   { to: '/habits', label: 'Habits' },
+  { to: '/workout', label: 'Workout' },
   { to: '/protein', label: 'Protein' },
   { to: '/todo', label: 'To-do' },
   { to: '/goals', label: 'Goals' },
@@ -19,9 +21,9 @@ const NAV = [
 const TABS = [
   { to: '/', label: 'Today', icon: '☼', end: true },
   { to: '/habits', label: 'Habits', icon: '◎' },
+  { to: '/workout', label: 'Workout', icon: '◈' },
   { to: '/todo', label: 'To-do', icon: '☐' },
-  { to: '/journal', label: 'Journal', icon: '✎' },
-  { to: '/more', label: 'More', icon: '⋯', also: ['/protein', '/goals', '/analytics', '/habits/manage'] },
+  { to: '/more', label: 'More', icon: '⋯', also: ['/protein', '/goals', '/journal', '/analytics', '/habits/manage'] },
 ]
 
 export default function Layout({ user }) {
@@ -56,6 +58,7 @@ export default function Layout({ user }) {
 
       <Toaster />
       <main className="content">
+        <ActiveWorkoutBar />
         <Outlet />
       </main>
 
