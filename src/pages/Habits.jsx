@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { fetchHabits, seedIfNeeded } from '../lib/habits'
 import { track } from '../lib/saveStatus'
+import { celebrateHabit } from '../lib/celebrate'
 import {
   addDays,
   dateRange,
@@ -83,9 +84,16 @@ export default function Habits({ user }) {
     return () => document.removeEventListener('visibilitychange', onVisible)
   }, [loadLogs])
 
-  function cycle(habitId, date) {
+  function cycle(habitId, date, el) {
     const k = key(habitId, date)
     const next = NEXT_STATUS[logs[k] ?? 'none']
+    if (next === 'done') {
+      const h = habits.find((x) => x.id === habitId)
+      const daily = habits.filter((x) => x.frequency !== 'weekly')
+      const allDone =
+        h.frequency !== 'weekly' && daily.every((x) => x.id === habitId || logs[key(x.id, date)] === 'done')
+      celebrateHabit(h, el, { allDone, colors: habits.map((x) => x.color) })
+    }
     setLogs((prev) => {
       const copy = { ...prev }
       if (next === 'none') delete copy[k]
@@ -246,7 +254,7 @@ function HabitGrid({ habits, columns, logs, expanded, goalTitles, onToggle, onCy
                       <td key={c.id} className={c.current ? 'is-today' : ''}>
                         <button
                           className={`cell ${status}`}
-                          onClick={() => onCycle(h.id, c.id)}
+                          onClick={(e) => onCycle(h.id, c.id, e.currentTarget)}
                           aria-label={`${h.name}, ${c.label}: ${status === 'none' ? 'blank' : status}`}
                         >
                           {status === 'done' ? '✓' : status === 'missed' ? '✕' : ''}

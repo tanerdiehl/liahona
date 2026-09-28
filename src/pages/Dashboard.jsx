@@ -6,6 +6,10 @@ import { fetchGoals } from '../lib/goals'
 import { track } from '../lib/saveStatus'
 import { formatLong, startOfWeek, todayISO } from '../lib/dates'
 import GoalProgress from '../components/GoalProgress'
+import TaskList from '../components/TaskList'
+import { useTasks } from '../lib/useTasks'
+import { celebrateHabit } from '../lib/celebrate'
+import { DAILY, pickForDay, TODO_EMPTY } from '../lib/quips'
 import { PROTEIN_MAX, PROTEIN_MIN } from './Protein'
 
 const NEXT_STATUS = { none: 'done', done: 'missed', missed: 'none' }
@@ -25,12 +29,14 @@ export default function Dashboard({ user }) {
         <div>
           <p className="muted small">{formatLong(today)}</p>
           <h1>{greeting()}</h1>
+          <p className="daily-quip">{pickForDay(DAILY, today)}</p>
         </div>
       </div>
       <div className="dash-grid">
         <TodayHabits user={user} />
+        <RememberWhy />
         <ProteinToday />
-        <TasksPeek />
+        <TasksPanel />
         <GoalsPeek />
         <JournalPeek />
       </div>
@@ -87,9 +93,14 @@ function TodayHabits({ user }) {
     load()
   }, [load])
 
-  function cycle(h) {
+  function cycle(h, el) {
     const date = h.frequency === 'weekly' ? week : today
     const next = NEXT_STATUS[logs[h.id] ?? 'none']
+    if (next === 'done') {
+      const daily = habits.filter((x) => x.frequency !== 'weekly')
+      const allDone = h.frequency !== 'weekly' && daily.every((x) => x.id === h.id || logs[x.id] === 'done')
+      celebrateHabit(h, el, { allDone, colors: habits.map((x) => x.color) })
+    }
     setLogs((prev) => {
       const copy = { ...prev }
       if (next === 'none') delete copy[h.id]
@@ -132,7 +143,7 @@ function TodayHabits({ user }) {
                 <li key={h.id}>
                   <button
                     className={`cell ${s}`}
-                    onClick={() => cycle(h)}
+                    onClick={(e) => cycle(h, e.currentTarget)}
                     aria-label={`${h.name}: ${s === 'none' ? 'blank' : s}`}
                   >
                     {s === 'done' ? '✓' : s === 'missed' ? '✕' : ''}
@@ -219,69 +230,72 @@ function ProteinToday() {
   )
 }
 
-function TasksPeek() {
-  const [open, setOpen] = useState(null)
-  const [openCount, setOpenCount] = useState(0)
-  const [recent, setRecent] = useState([])
-  const [error, setError] = useState('')
-
-  const load = useCallback(async () => {
-    const [a, b] = await Promise.all([
-      supabase
-        .from('tasks')
-        .select('id,title', { count: 'exact' })
-        .is('completed_at', null)
-        .order('created_at', { ascending: false })
-        .limit(5),
-      supabase
-        .from('tasks')
-        .select('id,title')
-        .not('completed_at', 'is', null)
-        .order('completed_at', { ascending: false })
-        .limit(3),
-    ])
-    if (a.error || b.error) return setError((a.error || b.error).message)
-    setOpen(a.data)
-    setOpenCount(a.count ?? a.data.length)
-    setRecent(b.data)
-  }, [])
-
-  useEffect(() => {
-    load()
-  }, [load])
-
-  async function complete(t) {
-    setOpen((prev) => prev.filter((x) => x.id !== t.id))
-    const { error } = await track(
-      supabase.from('tasks').update({ completed_at: new Date().toISOString() }).eq('id', t.id),
-    )
-    if (error) setError(`Not saved — ${error.message}`)
-    load()
-  }
+function TasksPanel() {
+  const api = useTasks()
+  const today = todayISO()
+  const LIMIT = 7
+  const more = api.open.length - LIMIT
 
   return (
-    <Panel title="To-do" to="/todo" linkLabel={openCount > 5 ? `All ${openCount}` : 'Open'} className="dash-tasks">
-      {error && <p className="error">{error}</p>}
-      {!open ? (
-        <p className="muted">Loading…</p>
+    <Panel title="To-do" to="/todo" linkLabel={more > 0 ? `All ${api.open.length}` : 'Open'} className="dash-tasks">
+      {!api.tasks ? (
+        <p className={api.error ? 'error' : 'muted'}>{api.error || 'Loading…'}</p>
       ) : (
-        <ul className="keep-list compact">
-          {open.length === 0 && <li className="muted">Nothing open.</li>}
-          {open.map((t) => (
-            <li key={t.id}>
-              <button className="box" onClick={() => complete(t)} aria-label={`Complete ${t.title}`} />
-              <span className="keep-title">{t.title}</span>
-            </li>
-          ))}
-          {recent.map((t) => (
-            <li key={t.id} className="recent-done">
-              <span className="box on">✓</span>
-              <span className="keep-title struck">{t.title}</span>
-            </li>
-          ))}
-        </ul>
+        <>
+          {api.open.length === 0 && <p className="empty-quip">{pickForDay(TODO_EMPTY, today)}</p>}
+          <TaskList api={api} limit={LIMIT} compact />
+          {more > 0 && (
+            <Link to="/todo" className="muted small">
+              + {more} more
+            </Link>
+          )}
+          {api.error && <p className="error">{api.error}</p>}
+        </>
       )}
     </Panel>
+  )
+}
+
+// One habit's "why" each day, so the reasons stay front of mind.
+function RememberWhy() {
+  const [habit, setHabit] = useState(null)
+
+  useEffect(() => {
+    fetchHabits()
+      .then((all) => {
+        const withWhy = all.filter((h) => !h.archived && h.why?.trim())
+        if (withWhy.length) setHabit(pickForDay(withWhy, todayISO()))
+      })
+      .catch(() => {})
+  }, [])
+
+  if (!habit) return null
+  return (
+    <article className="card dash-card why-card" style={{ '--accent': habit.color }}>
+      <header className="dash-card-head">
+        <h2>Remember why</h2>
+        <span className="chip">
+          <span className="dot" style={{ background: habit.color }} /> {habit.name}
+        </span>
+      </header>
+      <p className="why-text">{habit.why}</p>
+      {(habit.minimum || habit.stretch) && (
+        <dl className="why-range">
+          {habit.minimum && (
+            <div>
+              <dt>Minimum</dt>
+              <dd>{habit.minimum}</dd>
+            </div>
+          )}
+          {habit.stretch && (
+            <div>
+              <dt>Stretch</dt>
+              <dd>{habit.stretch}</dd>
+            </div>
+          )}
+        </dl>
+      )}
+    </article>
   )
 }
 

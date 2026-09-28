@@ -3,6 +3,7 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useSaveStatus } from '../lib/saveStatus'
 import { downloadBackup } from '../lib/backup'
+import Toaster from './Toaster'
 
 // Desktop top nav shows everything; the phone tab bar keeps the daily
 // essentials and tucks the rest under "More".
@@ -53,6 +54,7 @@ export default function Layout({ user }) {
         </button>
       </header>
 
+      <Toaster />
       <main className="content">
         <Outlet />
       </main>

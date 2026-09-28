@@ -1468,3 +1468,116 @@ mark {
   font-size: 1rem;
   cursor: pointer;
 }
+
+/* ---------- toasts & celebration ---------- */
+.toaster {
+  position: fixed;
+  left: 50%;
+  top: max(12px, env(safe-area-inset-top));
+  transform: translateX(-50%);
+  display: grid;
+  gap: 8px;
+  z-index: 50;
+  width: min(420px, calc(100vw - 32px));
+  pointer-events: none;
+}
+.toast {
+  pointer-events: auto;
+  display: grid;
+  gap: 2px;
+  text-align: left;
+  background: var(--surface);
+  color: var(--text);
+  border: none;
+  border-left: 4px solid var(--toast-accent, var(--success));
+  border-radius: 12px;
+  padding: 12px 16px;
+  box-shadow: 0 8px 30px rgba(20, 20, 40, 0.18);
+  cursor: pointer;
+  animation: toast-in 0.25s ease-out;
+}
+.toast span {
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .toast {
+    animation: none;
+  }
+}
+.daily-quip {
+  margin: 6px 0 0 !important;
+  color: var(--muted);
+  font-family: var(--serif);
+  font-style: italic;
+}
+.empty-quip {
+  margin: 8px 8px 4px;
+  color: var(--muted);
+  font-family: var(--serif);
+  font-style: italic;
+}
+.hint {
+  margin-top: 10px;
+}
+.why-card {
+  border-left: 4px solid var(--accent);
+}
+.why-text {
+  font-family: var(--serif);
+  font-size: 1.2rem;
+  line-height: 1.5;
+}
+.why-range {
+  margin: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.why-range dt {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+.why-range dd {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+/* ---------- drag to reorder ---------- */
+.drag-handle {
+  flex: none;
+  border: none;
+  background: none;
+  color: var(--muted);
+  cursor: grab;
+  padding: 4px 2px;
+  font-size: 1rem;
+  line-height: 1;
+  touch-action: none;
+  opacity: 0.5;
+}
+.keep-list li:hover .drag-handle {
+  opacity: 1;
+}
+@media (hover: none) {
+  .drag-handle {
+    opacity: 0.7;
+  }
+}
+.keep-list li.dragging {
+  position: relative;
+  z-index: 2;
+  background: var(--surface);
+  box-shadow: 0 6px 20px rgba(20, 20, 40, 0.15);
+}
+.keep-list li.pending {
+  opacity: 0.6;
+}

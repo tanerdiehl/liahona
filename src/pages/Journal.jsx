@@ -148,7 +148,7 @@ export default function Journal() {
       {entries === null ? (
         <p className="muted">Loading…</p>
       ) : filtered.length === 0 ? (
-        <p className="muted">{filtering ? 'No entries match.' : 'Your entries will appear here.'}</p>
+        <p className="muted">{filtering ? 'No entries match.' : 'A blank page. Tell it about today.'}</p>
       ) : (
         <>
           {filtering && (
