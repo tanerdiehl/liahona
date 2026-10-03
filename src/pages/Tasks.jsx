@@ -74,6 +74,15 @@ export default function Tasks() {
           </button>
         </div>
       </div>
+      <div className="daily-thought todo-quote">
+        <blockquote className="quote">
+          <p>
+            “There is no chance, no destiny, no fate, that can circumvent or hinder or control the firm resolve of a
+            determined soul.”
+          </p>
+          <cite>Ella Wheeler Wilcox</cite>
+        </blockquote>
+      </div>
       {list === 'week' && (
         <p className="muted small week-range">
           Week of {formatShort(startOfWeek(today))} – {formatShort(addDays(startOfWeek(today), 6))} · unfinished items

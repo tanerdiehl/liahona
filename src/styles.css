@@ -2069,3 +2069,6 @@ body.no-scroll {
   text-align: center;
   margin-top: 20px;
 }
+.todo-quote {
+  margin: -4px 0 16px;
+}
