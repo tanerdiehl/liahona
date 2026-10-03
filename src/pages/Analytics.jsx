@@ -8,6 +8,7 @@ import { PROTEIN_MAX, PROTEIN_MIN } from './Protein'
 import { Link } from 'react-router-dom'
 import { fetchGoals, TIERS } from '../lib/goals'
 import GoalProgress from '../components/GoalProgress'
+import { getSettings } from '../lib/settings'
 
 export default function Analytics() {
   const [habits, setHabits] = useState(null)
@@ -16,22 +17,28 @@ export default function Analytics() {
   const [goals, setGoals] = useState(null)
   const [showArchived, setShowArchived] = useState(false)
   const [error, setError] = useState('')
+  const [trackingStart, setTrackingStart] = useState(null)
 
   useEffect(() => {
     ;(async () => {
       try {
-        const [h, logRows, proteinRows] = await Promise.all([
+        const [h, logRows, proteinRows, settings] = await Promise.all([
           fetchHabits(),
           fetchAll(() => supabase.from('habit_logs').select('habit_id,date,status').order('date')),
           fetchAll(() => supabase.from('protein_entries').select('date,grams').order('date')),
+          getSettings().catch(() => ({})),
         ])
+        // Ignore anything from before you started tracking (hidden, not deleted).
+        const ts = settings.tracking_start ?? ''
         const byHabit = new Map()
         for (const r of logRows) {
+          if (r.date < ts) continue
           if (!byHabit.has(r.habit_id)) byHabit.set(r.habit_id, new Map())
           byHabit.get(r.habit_id).set(r.date, r.status)
         }
         const totals = new Map()
-        for (const r of proteinRows) totals.set(r.date, (totals.get(r.date) ?? 0) + Number(r.grams))
+        for (const r of proteinRows) if (r.date >= ts) totals.set(r.date, (totals.get(r.date) ?? 0) + Number(r.grams))
+        setTrackingStart(ts || null)
         setHabits(h)
         setLogs(byHabit)
         setProtein(totals)
@@ -46,9 +53,9 @@ export default function Analytics() {
 
   const statsById = useMemo(() => {
     const m = new Map()
-    if (habits) for (const h of habits) m.set(h.id, habitStats(h, logs.get(h.id) ?? new Map()))
+    if (habits) for (const h of habits) m.set(h.id, habitStats(h, logs.get(h.id) ?? new Map(), todayISO(), trackingStart))
     return m
-  }, [habits, logs])
+  }, [habits, logs, trackingStart])
 
   if (error) return <p className="error">{error}</p>
   if (!habits) return <p className="muted">Loading…</p>
@@ -92,7 +99,7 @@ export default function Analytics() {
       )}
 
       <h2 className="section-title">Protein</h2>
-      <ProteinSummary totals={protein} />
+      <ProteinSummary totals={protein} trackingStart={trackingStart} />
 
       <h2 className="section-title">Goals</h2>
       <GoalsSummary goals={goals} />
@@ -316,13 +323,13 @@ function HabitCard({ habit, logs, s }) {
         </>
       )}
 
-      <h4 className="chart-title">{s.weekly ? 'Last 52 weeks' : 'Last 12 months'}</h4>
+      <h4 className="chart-title">Calendar</h4>
       <Heatmap habit={habit} logs={logs} start={s.start} />
     </article>
   )
 }
 
-function ProteinSummary({ totals }) {
+function ProteinSummary({ totals, trackingStart }) {
   const today = todayISO()
   const logged = [...totals.entries()].filter(([, g]) => g > 0)
   const hit = logged.filter(([, g]) => g >= PROTEIN_MIN).length
@@ -349,8 +356,8 @@ function ProteinSummary({ totals }) {
           <span className="stat-label">30-day avg</span>
         </div>
       </div>
-      <h4 className="chart-title">Daily totals, last 60 days</h4>
-      <ProteinChart totals={totals} min={PROTEIN_MIN} max={PROTEIN_MAX} />
+      <h4 className="chart-title">Daily totals</h4>
+      <ProteinChart totals={totals} min={PROTEIN_MIN} max={PROTEIN_MAX} start={trackingStart} />
     </article>
   )
 }

@@ -17,6 +17,15 @@ import {
   workoutSeconds,
 } from './lib'
 import { useNow } from './useNow'
+import { closestCenter, DndContext, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import ExercisePicker from './ExercisePicker'
 import WorkoutSummary from './WorkoutSummary'
 
@@ -247,6 +256,27 @@ function ActiveWorkout({ workout, onFinished }) {
     await write(supabase.from('workout_sets').insert(sets), "Sets weren't added")
   }
 
+  // Drag-and-drop: move an exercise, then renumber everyone's position.
+  function reorderExercises(activeId, overId) {
+    const from = entries.findIndex((e) => e.we.id === activeId)
+    const to = entries.findIndex((e) => e.we.id === overId)
+    if (from < 0 || to < 0 || from === to) return
+    const moved = arrayMove(entries, from, to)
+    const changed = moved.filter((e, i) => e.we.position !== i)
+    setEntries(moved.map((e, i) => ({ ...e, we: { ...e.we, position: i } })))
+    changed.forEach((e) =>
+      write(
+        supabase.from('workout_exercises').update({ position: moved.indexOf(e) }).eq('id', e.we.id),
+        "New order wasn't saved",
+      ),
+    )
+  }
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  )
+
   async function removeExercise(entry) {
     const ex = exercises[entry.we.exercise_id]
     if (!window.confirm(`Remove ${ex?.name ?? 'this exercise'} and its sets from this workout?`)) return
@@ -364,6 +394,12 @@ function ActiveWorkout({ workout, onFinished }) {
 
       {entries.length === 0 && <p className="empty-quip">Add your first exercise to get going.</p>}
 
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={({ active, over }) => over && reorderExercises(active.id, over.id)}
+      >
+        <SortableContext items={entries.map((e) => e.we.id)} strategy={verticalListSortingStrategy}>
       {entries.map((entry) => (
         <ExerciseCard
           key={entry.we.id}
@@ -378,6 +414,8 @@ function ActiveWorkout({ workout, onFinished }) {
           onNotes={(v) => saveExerciseNotes(entry, v)}
         />
       ))}
+        </SortableContext>
+      </DndContext>
 
       <button className="btn add-exercise" onClick={() => setPicker(true)}>
         + Add exercise
@@ -403,10 +441,26 @@ function ExerciseCard({ entry, exercise, onUpdate, onToggle, onCycleType, onAddS
   const type = exercise?.exercise_type ?? 'weight_reps'
   const cfg = EXERCISE_TYPES[type]
   let workingNumber = 0
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({
+    id: entry.we.id,
+  })
 
   return (
-    <article className="card exercise-card">
+    <article
+      ref={setNodeRef}
+      className={`card exercise-card ${isDragging ? 'dragging' : ''}`}
+      style={{ transform: CSS.Translate.toString(transform), transition }}
+    >
       <header className="ex-head">
+        <button
+          ref={setActivatorNodeRef}
+          className="drag-handle"
+          aria-label={`Reorder ${exercise?.name ?? 'exercise'}`}
+          {...attributes}
+          {...listeners}
+        >
+          ⠿
+        </button>
         <div className="grow">
           <h3>{exercise?.name ?? 'Exercise'}</h3>
           <span className="muted small">{exercise?.muscle_group}</span>
@@ -510,7 +564,19 @@ function formatSet(s, type, unit) {
 // One input cell. Keeps its own text so half-typed values like "22." work;
 // the last session's number shows as grey placeholder text.
 function FieldInput({ field, set, ghost, onChange }) {
-  const column = field === 'duration' ? 'duration_seconds' : field
+  if (field === 'duration')
+    return (
+      <DurationInput
+        value={set.duration_seconds}
+        placeholder={ghost ? formatDuration(ghost.duration_seconds) : '0:00'}
+        onChange={(v) => onChange({ duration_seconds: v })}
+      />
+    )
+  return <NumberInput field={field} set={set} ghost={ghost} onChange={onChange} />
+}
+
+function NumberInput({ field, set, ghost, onChange }) {
+  const column = field
   const value = set[column]
   const toText = (v) => (v == null ? '' : field === 'duration' ? formatDuration(v) : String(v))
   const [text, setText] = useState(toText(value))
@@ -558,4 +624,64 @@ function FieldInput({ field, set, ghost, onChange }) {
       aria-label={field}
     />
   )
+}
+
+// Time entry like a microwave: digits fill in from the right, on the number
+// keypad. 45 → 0:45, 130 → 1:30, 1000 → 10:00, 10000 → 1:00:00.
+function DurationInput({ value, placeholder, onChange }) {
+  const [digits, setDigits] = useState(toDigits(value))
+  const lastValue = useRef(value)
+
+  useEffect(() => {
+    if (value !== lastValue.current) {
+      lastValue.current = value
+      setDigits(toDigits(value))
+    }
+  }, [value])
+
+  return (
+    <input
+      className="set-input"
+      inputMode="numeric"
+      placeholder={placeholder}
+      value={formatDigits(digits)}
+      onFocus={(e) => e.target.select()}
+      onChange={(e) => {
+        const d = e.target.value.replace(/D/g, '').replace(/^0+/, '').slice(0, 6)
+        setDigits(d)
+        const secs = d ? digitsToSeconds(d) : null
+        if (secs !== value) {
+          lastValue.current = secs
+          onChange(secs)
+        }
+      }}
+      // Tidy "0:90" into "1:30" when you leave the box.
+      onBlur={() => setDigits(toDigits(value))}
+      aria-label="time"
+    />
+  )
+}
+
+const pad2 = (n) => String(n).padStart(2, '0')
+
+function toDigits(secs) {
+  if (secs == null) return ''
+  const h = Math.floor(secs / 3600)
+  const m = Math.floor((secs % 3600) / 60)
+  const s = secs % 60
+  return (h ? `${h}${pad2(m)}${pad2(s)}` : `${m}${pad2(s)}`).replace(/^0+/, '')
+}
+
+function digitsToSeconds(d) {
+  const p = d.padStart(6, '0')
+  return Number(p.slice(0, 2)) * 3600 + Number(p.slice(2, 4)) * 60 + Number(p.slice(4))
+}
+
+function formatDigits(d) {
+  if (!d) return ''
+  const p = d.padStart(3, '0')
+  const sec = p.slice(-2)
+  const rest = p.slice(0, -2)
+  if (rest.length <= 2) return `${Number(rest)}:${sec}`
+  return `${Number(rest.slice(0, -2))}:${rest.slice(-2)}:${sec}`
 }

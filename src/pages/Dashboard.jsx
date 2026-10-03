@@ -9,8 +9,17 @@ import GoalProgress from '../components/GoalProgress'
 import TaskList from '../components/TaskList'
 import { useTasks } from '../lib/useTasks'
 import { celebrateHabit } from '../lib/celebrate'
-import { DAILY, pickForDay, TODO_EMPTY } from '../lib/quips'
+import { dailyInspiration, TOPIC_LABELS } from '../lib/inspiration'
 import { PROTEIN_MAX, PROTEIN_MIN } from './Protein'
+
+const LIST_KEY = 'liahona.todo.list'
+function readList() {
+  try {
+    return localStorage.getItem(LIST_KEY) === 'week' ? 'week' : 'todo'
+  } catch {
+    return 'todo'
+  }
+}
 
 const NEXT_STATUS = { none: 'done', done: 'missed', missed: 'none' }
 
@@ -29,12 +38,11 @@ export default function Dashboard({ user }) {
         <div>
           <p className="muted small">{formatLong(today)}</p>
           <h1>{greeting()}</h1>
-          <p className="daily-quip">{pickForDay(DAILY, today)}</p>
         </div>
       </div>
+      <DailyThought />
       <div className="dash-grid">
         <TodayHabits user={user} />
-        <RememberWhy />
         <ProteinToday />
         <TasksPanel />
         <GoalsPeek />
@@ -231,18 +239,35 @@ function ProteinToday() {
 }
 
 function TasksPanel() {
-  const api = useTasks()
-  const today = todayISO()
+  const [list, setList] = useState(readList)
+  const api = useTasks(list)
   const LIMIT = 7
   const more = api.open.length - LIMIT
 
+  function choose(l) {
+    setList(l)
+    try {
+      localStorage.setItem(LIST_KEY, l)
+    } catch {
+      /* per-device preference */
+    }
+  }
+
   return (
     <Panel title="To-do" to="/todo" linkLabel={more > 0 ? `All ${api.open.length}` : 'Open'} className="dash-tasks">
+      <div className="segmented small-seg list-tabs">
+        <button className={list === 'todo' ? 'on' : ''} onClick={() => choose('todo')}>
+          To-do
+        </button>
+        <button className={list === 'week' ? 'on' : ''} onClick={() => choose('week')}>
+          This week
+        </button>
+      </div>
       {!api.tasks ? (
         <p className={api.error ? 'error' : 'muted'}>{api.error || 'Loading…'}</p>
       ) : (
         <>
-          {api.open.length === 0 && <p className="empty-quip">{pickForDay(TODO_EMPTY, today)}</p>}
+          {api.open.length === 0 && <p className="muted small">All clear.</p>}
           <TaskList api={api} limit={LIMIT} compact />
           {more > 0 && (
             <Link to="/todo" className="muted small">
@@ -256,46 +281,33 @@ function TasksPanel() {
   )
 }
 
-// One habit's "why" each day, so the reasons stay front of mind.
-function RememberWhy() {
-  const [habit, setHabit] = useState(null)
+// Today's scripture and quote, leaning toward what you're working on.
+function DailyThought() {
+  const [items, setItems] = useState(null)
 
   useEffect(() => {
-    fetchHabits()
-      .then((all) => {
-        const withWhy = all.filter((h) => !h.archived && h.why?.trim())
-        if (withWhy.length) setHabit(pickForDay(withWhy, todayISO()))
-      })
-      .catch(() => {})
+    Promise.all([fetchHabits().catch(() => []), fetchGoals().catch(() => [])]).then(([h, g]) =>
+      setItems([...h.filter((x) => !x.archived), ...g.filter((x) => !x.completed_at)]),
+    )
   }, [])
 
-  if (!habit) return null
+  if (!items) return null
+  const { scripture, quote } = dailyInspiration(items, todayISO())
   return (
-    <article className="card dash-card why-card" style={{ '--accent': habit.color }}>
-      <header className="dash-card-head">
-        <h2>Remember why</h2>
-        <span className="chip">
-          <span className="dot" style={{ background: habit.color }} /> {habit.name}
-        </span>
-      </header>
-      <p className="why-text">{habit.why}</p>
-      {(habit.minimum || habit.stretch) && (
-        <dl className="why-range">
-          {habit.minimum && (
-            <div>
-              <dt>Minimum</dt>
-              <dd>{habit.minimum}</dd>
-            </div>
-          )}
-          {habit.stretch && (
-            <div>
-              <dt>Stretch</dt>
-              <dd>{habit.stretch}</dd>
-            </div>
-          )}
-        </dl>
-      )}
-    </article>
+    <div className="daily-thought">
+      <blockquote className="scripture">
+        <p>“{scripture.text}”</p>
+        <cite>{scripture.source}</cite>
+      </blockquote>
+      <blockquote className="quote">
+        <p>“{quote.text}”</p>
+        <cite>
+          {quote.source}
+          {quote.focus.source && <span className="focus-tag"> · for {quote.focus.source}</span>}
+          {!quote.focus.source && <span className="focus-tag"> · {TOPIC_LABELS.growth}</span>}
+        </cite>
+      </blockquote>
+    </div>
   )
 }
 

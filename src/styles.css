@@ -1996,3 +1996,61 @@ body.no-scroll {
   height: 24px;
   cursor: default;
 }
+
+/* ---------- daily thought ---------- */
+.daily-thought {
+  display: grid;
+  gap: 10px;
+  margin: -4px 0 20px;
+}
+.daily-thought blockquote {
+  margin: 0;
+  padding-left: 14px;
+  border-left: 3px solid var(--border);
+}
+.daily-thought .scripture {
+  border-left-color: #7f77dd;
+}
+.daily-thought .quote {
+  border-left-color: #ba7517;
+}
+.daily-thought p {
+  margin: 0;
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 1.05rem;
+  line-height: 1.5;
+}
+.daily-thought cite {
+  font-style: normal;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.focus-tag {
+  opacity: 0.8;
+}
+
+/* ---------- weekly list ---------- */
+.list-tabs {
+  justify-self: start;
+}
+.week-range {
+  margin: -8px 0 12px;
+}
+.empty-line {
+  margin: 8px 10px 0;
+}
+.chip.carry {
+  background: color-mix(in srgb, #ba7517 18%, transparent);
+  color: #ba7517;
+}
+
+/* ---------- exercise drag ---------- */
+.exercise-card.dragging {
+  position: relative;
+  z-index: 3;
+  box-shadow: 0 10px 30px rgba(20, 20, 40, 0.2);
+}
+.ex-head .drag-handle {
+  margin-left: -4px;
+}

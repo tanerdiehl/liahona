@@ -1,18 +1,21 @@
 import { addDays, dateRange, startOfMonth, startOfWeek, todayISO, weekRange } from './dates'
 
 // Scoring rules (see README):
-// - A habit is tracked from its start_date (or its earliest log, if earlier).
+// - A habit is tracked from its start_date (or its earliest log, if earlier),
+//   but never from before your tracking start date.
 // - Every tracked day (or week, for weekly habits) counts. Blank and ✕ are misses.
 // - Today / this week only counts once you've marked it, so an unfinished
 //   day never drags your numbers down.
 // - A streak is consecutive ✓ units ending today (or yesterday, if today is still blank).
 
-export function habitStats(habit, logs, today = todayISO()) {
+export function habitStats(habit, logs, today = todayISO(), trackingStart = null) {
   const weekly = habit.frequency === 'weekly'
   const current = weekly ? startOfWeek(today) : today
 
   let start = habit.start_date
   for (const d of logs.keys()) if (d < start) start = d
+  // Nothing before the day you started using the app counts.
+  if (trackingStart && start < trackingStart) start = trackingStart
   if (weekly) start = startOfWeek(start)
   if (start > current) start = current
 
@@ -58,7 +61,10 @@ export function habitStats(habit, logs, today = todayISO()) {
   const thisWeek = startOfWeek(today)
   const trend = weekly
     ? null
-    : weekRange(addDays(thisWeek, -77), thisWeek).map((w) => {
+    : weekRange(
+        addDays(thisWeek, -77) > startOfWeek(start) ? addDays(thisWeek, -77) : startOfWeek(start),
+        thisWeek,
+      ).map((w) => {
         const days = dateRange(w, addDays(w, 6)).filter(
           (d) => d >= start && d <= today && (d !== today || logs.has(d)),
         )

@@ -15,6 +15,7 @@ import {
   workoutSeconds,
 } from './lib'
 import { useNow } from './useNow'
+import { invalidateSettings } from '../lib/settings'
 
 export default function WorkoutHome() {
   const navigate = useNavigate()
@@ -55,6 +56,7 @@ export default function WorkoutHome() {
     setSettings((s) => ({ ...s, weight_unit }))
     const { error } = await track(supabase.from('user_settings').update({ weight_unit }).eq('user_id', settings.user_id))
     if (error) setError(error.message)
+    invalidateSettings()
     setRecent(await fetchRecent(weight_unit))
   }
 

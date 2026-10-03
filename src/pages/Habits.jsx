@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { fetchHabits, seedIfNeeded } from '../lib/habits'
 import { track } from '../lib/saveStatus'
 import { celebrateHabit } from '../lib/celebrate'
+import { maxDate, useTrackingStart } from '../lib/settings'
 import {
   addDays,
   dateRange,
@@ -36,10 +37,16 @@ export default function Habits({ user }) {
   const desired = useRef({})
   const queues = useRef({})
 
-  const startDate = addDays(endDate, -(DAYS_SHOWN - 1))
+  // Never show days from before you started tracking.
+  const trackingStart = useTrackingStart()
+  const startDate = maxDate(addDays(endDate, -(DAYS_SHOWN - 1)), trackingStart)
   const dates = dateRange(startDate, endDate)
   const lastWeek = startOfWeek(endDate)
-  const weeks = weekRange(addDays(lastWeek, -7 * (WEEKS_SHOWN - 1)), lastWeek)
+  const weeks = weekRange(
+    maxDate(addDays(lastWeek, -7 * (WEEKS_SHOWN - 1)), trackingStart && startOfWeek(trackingStart)),
+    lastWeek,
+  )
+  const atStart = Boolean(trackingStart) && startDate <= trackingStart
   const rangeStart = weeks[0] < startDate ? weeks[0] : startDate
 
   useEffect(() => {
@@ -160,7 +167,12 @@ export default function Habits({ user }) {
       </div>
 
       <div className="range-nav">
-        <button className="btn ghost small" onClick={() => setEndDate(addDays(endDate, -7))} aria-label="Earlier">
+        <button
+          className="btn ghost small"
+          onClick={() => setEndDate(addDays(endDate, -7))}
+          disabled={atStart}
+          aria-label="Earlier"
+        >
           ‹
         </button>
         <span className="muted">

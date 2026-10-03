@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabase'
 import { fetchAll } from '../lib/habits'
 import { SEED_EXERCISES } from './seedExercises'
+import { getSettings } from '../lib/settings'
 
 export const MUSCLE_GROUPS = [
   'Chest',
@@ -40,14 +41,7 @@ export const SET_TYPE_CYCLE = ['normal', 'warmup', 'drop', 'failure']
 
 // ---------- settings + library seeding ----------
 
-export async function loadSettings() {
-  const { data, error } = await supabase.from('user_settings').select('*').maybeSingle()
-  if (error) throw error
-  if (data) return data
-  const { data: created, error: e2 } = await supabase.from('user_settings').insert({}).select().single()
-  if (e2) throw e2
-  return created
-}
+export const loadSettings = getSettings
 
 let seeding = null
 export function ensureExercisesSeeded(settings) {

@@ -3,15 +3,16 @@ import { arrayMove } from '@dnd-kit/sortable'
 import { supabase } from './supabase'
 import { fetchAll } from './habits'
 import { track } from './saveStatus'
-import { burst, toast } from './celebrate'
-import { pick, TASK_DONE } from './quips'
+import { burst } from './celebrate'
+import { startOfWeek, todayISO } from './dates'
 
 const byOrder = (a, b) => a.sort_order - b.sort_order || (a.created_at < b.created_at ? -1 : 1)
 
 // Shared to-do state for the To-do page and the Dashboard. Every change
 // shows on screen immediately, then saves; a failed save puts things back
 // and shows an error.
-export function useTasks() {
+// list: 'todo' (main list) or 'week' (this week's list).
+export function useTasks(list = 'todo') {
   const [tasks, setTasks] = useState(null)
   const [error, setError] = useState('')
 
@@ -39,7 +40,7 @@ export function useTasks() {
 
   // Returns true once saved. The new item appears instantly.
   async function add(title, extra = {}) {
-    const open = (tasks ?? []).filter((t) => !t.completed_at)
+    const open = (tasks ?? []).filter((t) => !t.completed_at && (t.list ?? 'todo') === list)
     const sort_order = Math.max(0, ...open.map((t) => t.sort_order)) + 1
     const temp = {
       id: `tmp-${Date.now()}`,
@@ -48,10 +49,12 @@ export function useTasks() {
       completed_at: null,
       created_at: new Date().toISOString(),
       goal_id: extra.goal_id ?? null,
+      list,
+      week_start: list === 'week' ? startOfWeek(todayISO()) : null,
       pending: true,
     }
     setTasks((prev) => [...prev, temp])
-    const { data, error } = await track(supabase.from('tasks').insert({ title, sort_order, ...extra }).select().single())
+    const { data, error } = await track(supabase.from('tasks').insert({ title, sort_order, list, week_start: temp.week_start, ...extra }).select().single())
     if (error) {
       setTasks((prev) => prev.filter((t) => t.id !== temp.id))
       setError(`Not saved — ${error.message}`)
@@ -64,7 +67,6 @@ export function useTasks() {
 
   function complete(task, el) {
     burst(el)
-    toast({ title: pick(TASK_DONE), body: task.title })
     return update(task.id, { completed_at: new Date().toISOString() })
   }
 
@@ -80,10 +82,9 @@ export function useTasks() {
     }
   }
 
-  const open = tasks ? tasks.filter((t) => !t.completed_at).sort(byOrder) : []
-  const done = tasks
-    ? tasks.filter((t) => t.completed_at).sort((a, b) => (a.completed_at < b.completed_at ? 1 : -1))
-    : []
+  const mine = tasks ? tasks.filter((t) => (t.list ?? 'todo') === list) : []
+  const open = mine.filter((t) => !t.completed_at).sort(byOrder)
+  const done = mine.filter((t) => t.completed_at).sort((a, b) => (a.completed_at < b.completed_at ? 1 : -1))
 
   // Drag-and-drop: give the moved item a value between its new neighbours.
   function reorder(activeId, overId) {

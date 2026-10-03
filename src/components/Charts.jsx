@@ -30,9 +30,13 @@ const STATUS_WORD = { done: 'Done', missed: 'Missed' }
 
 // GitHub-style calendar: one column per week, one row per weekday.
 // Weekly habits get a single row of week cells instead.
-export function Heatmap({ habit, logs, start, weeks = 52 }) {
+// Shows from the week tracking began (up to a year), so a new habit isn't
+// a sea of empty squares.
+export function Heatmap({ habit, logs, start, maxWeeks = 52 }) {
   const today = todayISO()
   const thisWeek = startOfWeek(today)
+  const sinceStart = Math.round((fromISO(thisWeek) - fromISO(startOfWeek(start))) / (7 * 864e5)) + 1
+  const weeks = Math.max(1, Math.min(maxWeeks, sinceStart))
   const cols = weekRange(addDays(thisWeek, -7 * (weeks - 1)), thisWeek)
   const weekly = habit.frequency === 'weekly'
   const CELL = 12
@@ -161,8 +165,10 @@ export function TrendBars({ trend, color }) {
 }
 
 // Daily protein totals with the target band shaded.
-export function ProteinChart({ totals, days = 60, min, max }) {
+export function ProteinChart({ totals, maxDays = 60, start, min, max }) {
   const today = todayISO()
+  const sinceStart = start ? Math.round((fromISO(today) - fromISO(start)) / 864e5) + 1 : maxDays
+  const days = Math.max(7, Math.min(maxDays, sinceStart))
   const series = dateRange(addDays(today, -(days - 1)), today).map((d) => ({ date: d, total: totals.get(d) ?? 0 }))
   const W = 640
   const H = 180

@@ -10,6 +10,7 @@ import {
 } from '@dnd-kit/core'
 import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+import { formatShort, startOfWeek, todayISO } from '../lib/dates'
 
 // Keep-style open list: drag handle, checkbox, tap-to-edit title, and a
 // "+ List item" row. `limit` shows only the first N (used on the Dashboard).
@@ -87,6 +88,11 @@ function TaskRow({ task, api, goalTitle }) {
       ) : (
         <span className={`keep-title ${task.title ? '' : 'blank'}`} onClick={() => !task.pending && setEditing(true)}>
           {task.title}
+        </span>
+      )}
+      {task.list === 'week' && task.week_start && task.week_start < startOfWeek(todayISO()) && (
+        <span className="chip carry" title="Carried over from an earlier week">
+          from {formatShort(task.week_start)}
         </span>
       )}
       {goalTitle && (
