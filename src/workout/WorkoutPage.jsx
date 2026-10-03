@@ -34,6 +34,7 @@ import WorkoutSummary from './WorkoutSummary'
 export default function WorkoutPage() {
   const { id } = useParams()
   const [workout, setWorkout] = useState(undefined)
+  const [editing, setEditing] = useState(false)
   const [error, setError] = useState('')
 
   const load = useCallback(async () => {
@@ -54,10 +55,25 @@ export default function WorkoutPage() {
         Workout not found. <Link to="/workout">Back to workouts</Link>
       </p>
     )
-  return workout.ended_at ? (
-    <WorkoutSummary workout={workout} justFinished={sessionStorage.getItem('liahona.justFinished') === id} />
-  ) : (
-    <ActiveWorkout workout={workout} onFinished={load} />
+  if (workout.ended_at && !editing)
+    return (
+      <WorkoutSummary
+        workout={workout}
+        justFinished={sessionStorage.getItem('liahona.justFinished') === id}
+        onEdit={() => setEditing(true)}
+      />
+    )
+  // A finished workout opens in the same editor, in edit mode.
+  return (
+    <ActiveWorkout
+      key={workout.id + (editing ? '-edit' : '')}
+      workout={workout}
+      editing={Boolean(workout.ended_at)}
+      onFinished={async () => {
+        await load()
+        setEditing(false)
+      }}
+    />
   )
 }
 
@@ -71,7 +87,7 @@ const REQUIRED = {
   distance_duration: ['duration_seconds'],
 }
 
-function ActiveWorkout({ workout, onFinished }) {
+function ActiveWorkout({ workout, editing, onFinished }) {
   const navigate = useNavigate()
   const now = useNow(1000)
   const [unit, setUnit] = useState('lbs')
@@ -83,6 +99,13 @@ function ActiveWorkout({ workout, onFinished }) {
   const [picker, setPicker] = useState(false)
   const [error, setError] = useState('')
   const [finishing, setFinishing] = useState(false)
+  // Start/end times, editable when fixing a past workout.
+  const [times, setTimes] = useState({
+    workout_date: workout.workout_date,
+    started_at: workout.started_at,
+    ended_at: workout.ended_at,
+  })
+  const previousBefore = editing ? workout.started_at : null
 
   // ---------- load ----------
   useEffect(() => {
@@ -99,7 +122,7 @@ function ActiveWorkout({ workout, onFinished }) {
         setUnit(settings.weight_unit)
         setExercises(Object.fromEntries(ex.map((e) => [e.id, e])))
         const previous = await Promise.all(
-          wes.map((we) => fetchPreviousSets(we.exercise_id, workout.id).catch(() => [])),
+          wes.map((we) => fetchPreviousSets(we.exercise_id, workout.id, previousBefore).catch(() => [])),
         )
         setEntries(
           wes.map((we, i) => ({ we, sets: sets.filter((s) => s.workout_exercise_id === we.id), previous: previous[i] })),
@@ -211,7 +234,8 @@ function ActiveWorkout({ workout, onFinished }) {
     if (set.completed) return updateSet(entry.we.id, set.id, { completed: false, completed_at: null }, true)
     const type = exercises[entry.we.exercise_id]?.exercise_type ?? 'weight_reps'
     const ghost = entry.previous[index]
-    const fields = { completed: true, completed_at: new Date().toISOString() }
+    // When editing a past workout, date the set to that workout, not today.
+    const fields = { completed: true, completed_at: editing ? times.ended_at : new Date().toISOString() }
     if (ghost) {
       if (set.weight == null && ghost.weight != null)
         fields.weight = roundWeight(convertWeight(Number(ghost.weight), ghost.weight_unit, set.weight_unit))
@@ -244,7 +268,7 @@ function ActiveWorkout({ workout, onFinished }) {
       position: Math.max(-1, ...entries.map((e) => e.we.position)) + 1,
       notes: '',
     }
-    const previous = await fetchPreviousSets(ex.id, workout.id).catch(() => [])
+    const previous = await fetchPreviousSets(ex.id, workout.id, previousBefore).catch(() => [])
     const sets = Array.from({ length: Math.max(1, previous.length) }, (_, i) =>
       newSet(we, i, previous[i]?.set_type ?? 'normal'),
     )
@@ -309,7 +333,12 @@ function ActiveWorkout({ workout, onFinished }) {
       if (window.confirm('No sets are checked off yet. Discard this workout instead?')) discard(true)
       return
     }
-    if (undone.length && !window.confirm(`${undone.length} unchecked set${undone.length === 1 ? '' : 's'} will be removed. Finish workout?`)) {
+    if (
+      undone.length &&
+      !window.confirm(
+        `${undone.length} unchecked set${undone.length === 1 ? '' : 's'} will be removed. ${editing ? 'Save changes' : 'Finish workout'}?`,
+      )
+    ) {
       setFinishing(false)
       return
     }
@@ -317,14 +346,14 @@ function ActiveWorkout({ workout, onFinished }) {
       await write(supabase.from('workout_sets').delete().in('id', undone.map((s) => s.id)), 'Cleanup failed')
     const emptyExercises = entries.filter((e) => !e.sets.some((s) => s.completed)).map((e) => e.we.id)
     if (emptyExercises.length) await write(supabase.from('workout_exercises').delete().in('id', emptyExercises), 'Cleanup failed')
-    const ok = await write(
-      supabase.from('workouts').update({ ended_at: new Date().toISOString(), name, notes }).eq('id', workout.id),
-      "Workout wasn't finished",
-    )
+    const fields = editing ? { name, notes } : { ended_at: new Date().toISOString(), name, notes }
+    const ok = await write(supabase.from('workouts').update(fields).eq('id', workout.id), "Workout wasn't saved")
     setFinishing(false)
     if (ok) {
-      sessionStorage.setItem('liahona.justFinished', workout.id)
-      bigCelebration()
+      if (!editing) {
+        sessionStorage.setItem('liahona.justFinished', workout.id)
+        bigCelebration()
+      }
       onFinished()
     }
   }
@@ -356,14 +385,24 @@ function ActiveWorkout({ workout, onFinished }) {
             aria-label="Workout name"
           />
           <span className="aw-meta">
-            <span className="timer">⏱ {formatDuration(workoutSeconds(workout, now))}</span>
+            <span className="timer">⏱ {formatDuration(workoutSeconds({ ...workout, ...times }, now))}</span>
             <span className="muted small">{doneSets} sets done</span>
           </span>
         </div>
         <button className="btn primary" onClick={finish} disabled={finishing}>
-          {finishing ? 'Saving…' : 'Finish'}
+          {finishing ? 'Saving…' : editing ? 'Done' : 'Finish'}
         </button>
       </header>
+
+      {editing && (
+        <WhenEditor
+          times={times}
+          onSave={async (next) => {
+            setTimes(next)
+            await write(supabase.from('workouts').update(next).eq('id', workout.id), "Times weren't saved")
+          }}
+        />
+      )}
 
       {error && (
         <div className="aw-error">
@@ -420,9 +459,13 @@ function ActiveWorkout({ workout, onFinished }) {
       <button className="btn add-exercise" onClick={() => setPicker(true)}>
         + Add exercise
       </button>
-      <button className="link-btn discard" onClick={() => discard(false)}>
-        Discard workout
-      </button>
+      {editing ? (
+        <p className="muted small center">Editing a past workout. Changes save as you go.</p>
+      ) : (
+        <button className="link-btn discard" onClick={() => discard(false)}>
+          Discard workout
+        </button>
+      )}
 
       {picker && (
         <ExercisePicker
@@ -684,4 +727,46 @@ function formatDigits(d) {
   const rest = p.slice(0, -2)
   if (rest.length <= 2) return `${Number(rest)}:${sec}`
   return `${Number(rest.slice(0, -2))}:${rest.slice(-2)}:${sec}`
+}
+
+// Date + start/end time for a past workout. An end time earlier than the
+// start is treated as after midnight.
+function WhenEditor({ times, onSave }) {
+  const toTime = (iso) => {
+    const d = new Date(iso)
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+  }
+  const [date, setDate] = useState(times.workout_date)
+  const [start, setStart] = useState(toTime(times.started_at))
+  const [end, setEnd] = useState(toTime(times.ended_at))
+
+  function commit() {
+    if (!date || !start || !end) return
+    const s = new Date(`${date}T${start}`)
+    const e = new Date(`${date}T${end}`)
+    if (e < s) e.setDate(e.getDate() + 1)
+    const next = { workout_date: date, started_at: s.toISOString(), ended_at: e.toISOString() }
+    const changed =
+      next.workout_date !== times.workout_date ||
+      new Date(next.started_at).getTime() !== new Date(times.started_at).getTime() ||
+      new Date(next.ended_at).getTime() !== new Date(times.ended_at).getTime()
+    if (changed) onSave(next)
+  }
+
+  return (
+    <div className="when-editor">
+      <label>
+        Date
+        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} onBlur={commit} />
+      </label>
+      <label>
+        Start
+        <input type="time" value={start} onChange={(e) => setStart(e.target.value)} onBlur={commit} />
+      </label>
+      <label>
+        End
+        <input type="time" value={end} onChange={(e) => setEnd(e.target.value)} onBlur={commit} />
+      </label>
+    </div>
+  )
 }

@@ -81,15 +81,17 @@ export async function fetchActiveWorkout() {
 
 // Sets from the most recent *other* workout that included this exercise —
 // used to ghost-fill numbers when you add it again.
-export async function fetchPreviousSets(exerciseId, excludeWorkoutId) {
-  const { data, error } = await supabase
+// before: only look at sets logged before this time (used when editing an
+// old workout, so "previous" means the session before it).
+export async function fetchPreviousSets(exerciseId, excludeWorkoutId, before = null) {
+  let q = supabase
     .from('workout_sets')
     .select('*')
     .eq('exercise_id', exerciseId)
     .eq('completed', true)
     .neq('workout_id', excludeWorkoutId)
-    .order('completed_at', { ascending: false })
-    .limit(40)
+  if (before) q = q.lt('completed_at', before)
+  const { data, error } = await q.order('completed_at', { ascending: false }).limit(40)
   if (error) throw error
   if (!data.length) return []
   const lastWorkout = data[0].workout_id

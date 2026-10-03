@@ -18,7 +18,7 @@ import {
 
 const timeFmt = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' })
 
-export default function WorkoutSummary({ workout, justFinished }) {
+export default function WorkoutSummary({ workout, justFinished, onEdit }) {
   const navigate = useNavigate()
   const [data, setData] = useState(null)
   const [error, setError] = useState('')
@@ -83,6 +83,9 @@ export default function WorkoutSummary({ workout, justFinished }) {
         <Link to="/workout" className="btn ghost small">
           ‹ Workouts
         </Link>
+        <button className="btn ghost small" onClick={onEdit}>
+          Edit
+        </button>
       </div>
 
       {justFinished && <p className="finish-banner">Workout saved. Nice work.</p>}
