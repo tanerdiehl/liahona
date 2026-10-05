@@ -17,6 +17,7 @@ import More from './pages/More'
 import WorkoutHome from './workout/WorkoutHome'
 import WorkoutPage from './workout/WorkoutPage'
 import ImportHevy from './workout/ImportHevy'
+import WorkoutAnalytics from './workout/WorkoutAnalytics'
 
 export default function App() {
   // undefined = still checking stored session, null = signed out
@@ -51,6 +52,7 @@ export default function App() {
           <Route path="analytics" element={<Analytics />} />
           <Route path="workout" element={<WorkoutHome />} />
           <Route path="workout/import" element={<ImportHevy />} />
+          <Route path="workout/progress" element={<WorkoutAnalytics />} />
           <Route path="workout/:id" element={<WorkoutPage />} />
           <Route path="more" element={<More user={user} />} />
           <Route path="*" element={<Navigate to="/" replace />} />

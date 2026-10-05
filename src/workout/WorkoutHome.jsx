@@ -75,6 +75,9 @@ export default function WorkoutHome() {
     <section className="narrow workout-home">
       <div className="page-head">
         <h1>Workout</h1>
+        <Link to="/workout/progress" className="btn ghost small progress-link">
+          📈 Progress
+        </Link>
         <div className="segmented small-seg">
           {['lbs', 'kg'].map((u) => (
             <button key={u} className={settings.weight_unit === u ? 'on' : ''} onClick={() => setUnit(u)}>

@@ -78,6 +78,14 @@ export default function Analytics() {
         )}
       </div>
 
+      <Link to="/workout/progress" className="card wa-link">
+        <span className="grow">
+          <strong>Workout progress</strong>
+          <span className="muted small">1RM, volume, muscle groups, PRs and your training calendar</span>
+        </span>
+        <span aria-hidden>›</span>
+      </Link>
+
       <Compare habits={shown} statsById={statsById} protein={protein} />
 
       <h2 className="section-title">Daily habits</h2>

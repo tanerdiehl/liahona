@@ -25,6 +25,9 @@ export default function More({ user }) {
           <Link to="/analytics">Analytics</Link>
         </li>
         <li>
+          <Link to="/workout/progress">Workout progress</Link>
+        </li>
+        <li>
           <Link to="/habits/manage">Edit habits</Link>
         </li>
       </ul>
