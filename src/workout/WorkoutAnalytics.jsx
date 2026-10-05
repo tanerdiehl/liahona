@@ -50,7 +50,8 @@ const hoursMin = (sec) => {
 export default function WorkoutAnalytics() {
   const [raw, setRaw] = useState(null)
   const [error, setError] = useState('')
-  const [g, setG] = useState(() => store.get(G_KEY, 'week'))
+  // Month by default; an old saved "year" choice falls back to month.
+  const [g, setG] = useState(() => (store.get(G_KEY, 'month') === 'week' ? 'week' : 'month'))
 
   useEffect(() => {
     ;(async () => {

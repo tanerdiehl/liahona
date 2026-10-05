@@ -4,9 +4,8 @@ import { addDays, formatShort, fromISO, startOfWeek, weekRange } from '../lib/da
 import { convertWeight, epley, workoutSeconds } from './lib'
 
 export const GRANULARITIES = [
-  ['week', 'Week'],
   ['month', 'Month'],
-  ['year', 'Year'],
+  ['week', 'Week'],
 ]
 
 const LOADED = new Set(['weight_reps', 'weighted_bodyweight'])
