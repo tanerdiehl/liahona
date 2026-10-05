@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { fetchAll } from '../lib/habits'
 import { track } from '../lib/saveStatus'
 import { formatLong } from '../lib/dates'
+import { repeatWorkout, saveWorkoutAsRoutine } from './routines'
 import {
   convertWeight,
   epley,
@@ -62,6 +63,31 @@ export default function WorkoutSummary({ workout, justFinished, onEdit }) {
     if (justFinished) sessionStorage.removeItem('liahona.justFinished')
   }, [justFinished])
 
+  const [busy, setBusy] = useState('')
+
+  async function repeat() {
+    setBusy('repeat')
+    try {
+      const res = await repeatWorkout(workout)
+      if (res.existing && !window.confirm('You already have a workout in progress. Go to it?')) return
+      navigate(`/workout/${res.id}`)
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setBusy('')
+    }
+  }
+
+  async function saveRoutine() {
+    setBusy('routine')
+    try {
+      navigate(`/workout/routine/${await saveWorkoutAsRoutine(workout)}`)
+    } catch (e) {
+      setError(e.message)
+      setBusy('')
+    }
+  }
+
   async function remove() {
     if (!window.confirm('Delete this workout and all its sets permanently?')) return
     const { error } = await track(supabase.from('workouts').delete().eq('id', workout.id))
@@ -116,6 +142,16 @@ export default function WorkoutSummary({ workout, justFinished, onEdit }) {
           </div>
         </div>
       </div>
+
+      <div className="summary-actions">
+        <button className="btn primary" onClick={repeat} disabled={!!busy}>
+          {busy === 'repeat' ? 'Starting…' : '↻ Repeat workout'}
+        </button>
+        <button className="btn ghost" onClick={saveRoutine} disabled={!!busy}>
+          {busy === 'routine' ? 'Saving…' : 'Save as routine'}
+        </button>
+      </div>
+      {error && <p className="error">{error}</p>}
 
       {prs.length > 0 && (
         <div className="card pr-card">

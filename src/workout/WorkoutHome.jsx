@@ -16,6 +16,7 @@ import {
 } from './lib'
 import { useNow } from './useNow'
 import { invalidateSettings } from '../lib/settings'
+import RoutinesSection from './RoutinesSection'
 
 export default function WorkoutHome() {
   const navigate = useNavigate()
@@ -101,9 +102,19 @@ export default function WorkoutHome() {
       ) : (
         <button className="start-btn" onClick={start} disabled={starting}>
           <span className="start-plus">+</span>
-          {starting ? 'Starting…' : 'Start workout'}
+          {starting ? 'Starting…' : 'Start empty workout'}
         </button>
       )}
+
+      <RoutinesSection />
+
+      <Link to="/workout/library" className="card wa-link library-link">
+        <span className="grow">
+          <strong>Exercises</strong>
+          <span className="muted small">Browse, add, edit or archive exercises</span>
+        </span>
+        <span aria-hidden>›</span>
+      </Link>
 
       <div className="history-head">
         <h2 className="section-title">History</h2>

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { fetchAll } from '../lib/habits'
 import { formatLong, formatShort, todayISO } from '../lib/dates'
@@ -249,14 +249,20 @@ function MuscleCard({ sessions, g, today, unit }) {
 }
 
 function ExerciseSection({ sessions, g, today, unit }) {
+  const location = useLocation()
   const options = useMemo(() => exercisesWithHistory(sessions), [sessions])
   const fallback = options.find((e) => e.exercise_type === 'weight_reps')?.id ?? options[0]?.id
   const [exId, setExId] = useState(() => {
+    const requested = location.state?.exerciseId
+    if (options.some((o) => o.id === requested)) return requested
     const saved = store.get(EX_KEY, null)
     return options.some((o) => o.id === saved) ? saved : fallback
   })
   const ex = options.find((o) => o.id === exId)
   const history = useMemo(() => exerciseHistory(sessions, exId), [sessions, exId])
+  useEffect(() => {
+    if (location.state?.exerciseId) document.getElementById('exercise')?.scrollIntoView()
+  }, [location.state])
   if (!ex) return null
 
   const type = ex.exercise_type
@@ -294,7 +300,7 @@ function ExerciseSection({ sessions, g, today, unit }) {
           : { title: 'Most reps in a set', pick: (b) => Math.max(...b.map((h) => h.maxReps)), fmt: (v) => `${v}` }
 
   return (
-    <section className="wa-exercise">
+    <section className="wa-exercise" id="exercise">
       <div className="wa-title-row">
         <h2 className="section-title">Exercise</h2>
       </div>

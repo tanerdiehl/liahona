@@ -106,6 +106,16 @@ function ActiveWorkout({ workout, editing, onFinished }) {
     ended_at: workout.ended_at,
   })
   const previousBefore = editing ? workout.started_at : null
+  // Targets from the routine this workout was started from, by exercise.
+  const [targets, setTargets] = useState({})
+  useEffect(() => {
+    if (!workout.routine_id) return
+    supabase
+      .from('routine_exercises')
+      .select('exercise_id,target_sets,target_reps')
+      .eq('routine_id', workout.routine_id)
+      .then(({ data }) => data && setTargets(Object.fromEntries(data.map((t) => [t.exercise_id, t]))))
+  }, [workout.routine_id])
 
   // ---------- load ----------
   useEffect(() => {
@@ -444,6 +454,7 @@ function ActiveWorkout({ workout, editing, onFinished }) {
           key={entry.we.id}
           entry={entry}
           exercise={exercises[entry.we.exercise_id]}
+          target={targets[entry.we.exercise_id]}
           onUpdate={(set, fields) => updateSet(entry.we.id, set.id, fields)}
           onToggle={(set, i) => toggleComplete(entry, set, i)}
           onCycleType={(set) => cycleSetType(entry, set)}
@@ -478,7 +489,7 @@ function ActiveWorkout({ workout, editing, onFinished }) {
   )
 }
 
-function ExerciseCard({ entry, exercise, onUpdate, onToggle, onCycleType, onAddSet, onRemoveSet, onRemove, onNotes }) {
+function ExerciseCard({ entry, exercise, target, onUpdate, onToggle, onCycleType, onAddSet, onRemoveSet, onRemove, onNotes }) {
   const [showNotes, setShowNotes] = useState(Boolean(entry.we.notes))
   const [notes, setNotes] = useState(entry.we.notes)
   const type = exercise?.exercise_type ?? 'weight_reps'
@@ -506,7 +517,16 @@ function ExerciseCard({ entry, exercise, onUpdate, onToggle, onCycleType, onAddS
         </button>
         <div className="grow">
           <h3>{exercise?.name ?? 'Exercise'}</h3>
-          <span className="muted small">{exercise?.muscle_group}</span>
+          <span className="muted small">
+            {exercise?.muscle_group}
+            {target && (
+              <span className="target-hint">
+                {' '}
+                · Target {target.target_sets}
+                {target.target_reps ? ` × ${target.target_reps}` : ' sets'}
+              </span>
+            )}
+          </span>
         </div>
         {!showNotes && (
           <button className="link-btn" onClick={() => setShowNotes(true)}>

@@ -110,7 +110,7 @@ export default function ExercisePicker({ onPick, onClose, exclude = [] }) {
   )
 }
 
-function CustomExerciseForm({ initialName, onCreated }) {
+export function CustomExerciseForm({ initialName, onCreated, submitLabel = 'Create and add' }) {
   const [form, setForm] = useState({
     name: initialName,
     muscle_group: 'Chest',
@@ -168,7 +168,7 @@ function CustomExerciseForm({ initialName, onCreated }) {
         </select>
       </label>
       {error && <p className="error">{error}</p>}
-      <button className="btn primary">Create and add</button>
+      <button className="btn primary">{submitLabel}</button>
     </form>
   )
 }
