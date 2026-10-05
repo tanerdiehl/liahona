@@ -30,9 +30,9 @@ const STATUS_WORD = { done: 'Done', missed: 'Missed' }
 
 // GitHub-style calendar: one column per week, one row per weekday.
 // Weekly habits get a single row of week cells instead.
-// Shows from the week tracking began (up to a year), so a new habit isn't
-// a sea of empty squares.
-export function Heatmap({ habit, logs, start, maxWeeks = 52 }) {
+// Shows every week since tracking began (scrolls sideways once it's long),
+// so a new habit isn't a sea of empty squares and old years stay visible.
+export function Heatmap({ habit, logs, start, maxWeeks = Infinity }) {
   const today = todayISO()
   const thisWeek = startOfWeek(today)
   const sinceStart = Math.round((fromISO(thisWeek) - fromISO(startOfWeek(start))) / (7 * 864e5)) + 1
@@ -164,13 +164,15 @@ export function TrendBars({ trend, color }) {
   )
 }
 
-// Daily protein totals with the target band shaded.
-export function ProteinChart({ totals, maxDays = 60, start, min, max }) {
+// Daily protein totals with the target band shaded — your whole history.
+// Fits the card for the first ~2 months, then scrolls sideways.
+export function ProteinChart({ totals, start, min, max }) {
   const today = todayISO()
-  const sinceStart = start ? Math.round((fromISO(today) - fromISO(start)) / 864e5) + 1 : maxDays
-  const days = Math.max(7, Math.min(maxDays, sinceStart))
+  const first = [...totals.keys()].sort()[0]
+  const from = start && (!first || start < first) ? start : first ?? addDays(today, -6)
+  const days = Math.max(7, Math.round((fromISO(today) - fromISO(from)) / 864e5) + 1)
   const series = dateRange(addDays(today, -(days - 1)), today).map((d) => ({ date: d, total: totals.get(d) ?? 0 }))
-  const W = 640
+  const W = Math.max(640, days * 10 + 34)
   const H = 180
   const TOP = 10
   const BOTTOM = 20
@@ -182,10 +184,23 @@ export function ProteinChart({ totals, maxDays = 60, start, min, max }) {
   const step = plotW / series.length
   const barW = Math.max(2, step - 2)
   const { wrap, handlers, node, hide } = useTip()
+  const scroller = useRef(null)
+  useLayoutEffect(() => {
+    if (scroller.current) scroller.current.scrollLeft = scroller.current.scrollWidth
+  }, [days])
+  const wide = W > 640
 
   return (
     <div className="chart-wrap" ref={wrap} onMouseLeave={hide}>
-      <svg viewBox={`0 0 ${W} ${H}`} className="protein-svg" role="img" aria-label={`Daily protein, last ${days} days`}>
+      <div className="wchart-scroll" ref={scroller} onScroll={hide}>
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        width={wide ? W : undefined}
+        height={wide ? H : undefined}
+        className={wide ? '' : 'protein-svg'}
+        role="img"
+        aria-label={`Daily protein, ${days} days`}
+      >
         <rect x={0} y={y(max)} width={plotW} height={y(min) - y(max)} className="target-band" />
         {[min, max].map((g) => (
           <text key={g} x={W} y={y(g) + 4} className="chart-label" textAnchor="end">
@@ -215,6 +230,7 @@ export function ProteinChart({ totals, maxDays = 60, start, min, max }) {
           Today
         </text>
       </svg>
+      </div>
       {node}
     </div>
   )

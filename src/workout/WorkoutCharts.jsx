@@ -4,17 +4,20 @@ import { addDays, fromISO, startOfWeek, todayISO, toISO } from '../lib/dates'
 
 // Shared sizing: one column per time bucket; wide histories scroll sideways
 // (starting at the most recent end).
-function useWidth() {
+function useWidth(n) {
   const ref = useRef(null)
   const [width, setWidth] = useState(320)
   useLayoutEffect(() => {
     const el = ref.current
     if (!el) return
-    const ro = new ResizeObserver(([e]) => setWidth(Math.max(240, Math.floor(e.contentRect.width))))
+    const ro = new ResizeObserver(() => setWidth(Math.max(240, el.clientWidth)))
     ro.observe(el)
-    el.scrollLeft = el.scrollWidth
     return () => ro.disconnect()
   }, [])
+  // Start at the most recent end whenever the size or data changes.
+  useLayoutEffect(() => {
+    if (ref.current) ref.current.scrollLeft = ref.current.scrollWidth
+  }, [width, n])
   return [ref, width]
 }
 
@@ -87,7 +90,7 @@ function XLabels({ data, step }) {
 
 // data: [{ key, label, value, tip }]
 export function BarChart({ data, color, format = (v) => Math.round(v) }) {
-  const [scroller, width] = useWidth()
+  const [scroller, width] = useWidth(data.length)
   const { wrap, handlers, node, hide } = useTip()
   if (!data.length) return <p className="muted small">No data yet.</p>
   const { plotW, svgW, step, plotH } = frame(data.length, width)
@@ -118,7 +121,7 @@ export function BarChart({ data, color, format = (v) => Math.round(v) }) {
 
 // data: [{ key, label, value|null, tip }] — points only where value > 0.
 export function LineChart({ data, color, format = (v) => Math.round(v) }) {
-  const [scroller, width] = useWidth()
+  const [scroller, width] = useWidth(data.length)
   const { wrap, handlers, node, hide } = useTip()
   const pts = data.map((d, i) => ({ ...d, i })).filter((d) => d.value > 0)
   if (!pts.length) return <p className="muted small">No data yet.</p>

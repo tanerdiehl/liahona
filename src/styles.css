@@ -2269,3 +2269,12 @@ body.no-scroll {
 .wa-link .grow {
   display: grid;
 }
+
+/* charts scroll inside their cards instead of stretching them */
+.wa-grid > .card > *,
+.chart-wrap {
+  min-width: 0;
+}
+.wchart-scroll {
+  width: 100%;
+}

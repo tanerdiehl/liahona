@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { fetchAll } from '../lib/habits'
 import { track } from '../lib/saveStatus'
 import { addDays, formatLong, formatShort, todayISO } from '../lib/dates'
 
 export const PROTEIN_MIN = 119
 export const PROTEIN_MAX = 167
-const HISTORY_DAYS = 30
+const PAGE = 30 // days shown per "Show more"
 
 const timeFmt = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' })
 const round = (n) => Math.round(n * 10) / 10
@@ -15,6 +16,7 @@ export default function Protein() {
   const [date, setDate] = useState(today)
   const [entries, setEntries] = useState(null)
   const [history, setHistory] = useState([])
+  const [shown, setShown] = useState(PAGE)
   const [grams, setGrams] = useState('')
   const [error, setError] = useState('')
   const inputRef = useRef(null)
@@ -30,12 +32,13 @@ export default function Protein() {
   }, [date])
 
   const loadHistory = useCallback(async () => {
-    const { data, error } = await supabase
-      .from('protein_entries')
-      .select('date,grams')
-      .gte('date', addDays(today, -(HISTORY_DAYS - 1)))
-      .lte('date', today)
-    if (error) return setError(error.message)
+    // Your whole history, every day you've logged.
+    let data
+    try {
+      data = await fetchAll(() => supabase.from('protein_entries').select('date,grams').lte('date', today).order('id'))
+    } catch (e) {
+      return setError(e.message)
+    }
     const totals = {}
     for (const r of data) totals[r.date] = (totals[r.date] ?? 0) + Number(r.grams)
     setHistory(
@@ -140,12 +143,12 @@ export default function Protein() {
         )}
       </div>
 
-      <h2 className="section-title">Last {HISTORY_DAYS} days</h2>
+      <h2 className="section-title">History</h2>
       {history.length === 0 ? (
         <p className="muted">Nothing logged yet.</p>
       ) : (
         <ul className="history-list">
-          {history.map((h) => {
+          {history.slice(0, shown).map((h) => {
             const hit = h.total >= PROTEIN_MIN
             return (
               <li key={h.date}>
@@ -165,6 +168,11 @@ export default function Protein() {
             )
           })}
         </ul>
+      )}
+      {history.length > shown && (
+        <button className="btn ghost show-older" onClick={() => setShown(shown + PAGE)}>
+          Show more
+        </button>
       )}
     </section>
   )
