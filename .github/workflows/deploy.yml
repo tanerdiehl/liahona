@@ -1,9 +1,9 @@
-# Builds the app and publishes it to GitHub Pages on every push to main.
+# Old automatic build. Publishing now happens with `npm run publish` (see
+# scripts/publish.mjs), which pushes the built app to the gh-pages branch.
+# Kept for manual runs only.
 name: Deploy to GitHub Pages
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:

@@ -47,8 +47,8 @@ downloads every table as one JSON file.
 
 ## Deploying
 
-Every push to `main` builds and publishes to
-<https://tanerdiehl.github.io/liahona/> via `.github/workflows/deploy.yml`.
+Run `npm run publish` to build and publish to
+<https://tanerdiehl.github.io/liahona/> (it pushes the built app to the `gh-pages` branch, which GitHub Pages serves).
 
 Every table uses row-level security, so a signed-in user can only read
 and write their own rows.
