@@ -2072,3 +2072,36 @@ body.no-scroll {
 .todo-quote {
   margin: -4px 0 16px;
 }
+
+/* ---------- workout history + import ---------- */
+.history-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.show-older {
+  width: 100%;
+  justify-content: center;
+  margin-top: 12px;
+}
+.file-pick {
+  display: block;
+  margin: 16px 0;
+  text-align: center;
+  cursor: pointer;
+  color: var(--accent);
+  font-weight: 600;
+}
+.file-pick input {
+  display: block;
+  margin: 0 auto 8px;
+  font-size: 0.9rem;
+}
+.import-preview {
+  display: grid;
+  gap: 10px;
+}
+.import-preview p,
+.import-preview ul {
+  margin: 0;
+}

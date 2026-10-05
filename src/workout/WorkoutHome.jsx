@@ -24,6 +24,7 @@ export default function WorkoutHome() {
   const [recent, setRecent] = useState(null)
   const [error, setError] = useState('')
   const [starting, setStarting] = useState(false)
+  const [limit, setLimit] = useState(20)
   const now = useNow(1000)
 
   useEffect(() => {
@@ -33,7 +34,7 @@ export default function WorkoutHome() {
         setSettings(s)
         await ensureExercisesSeeded(s)
         setActive(await fetchActiveWorkout())
-        setRecent(await fetchRecent(s.weight_unit))
+        setRecent(await fetchRecent(s.weight_unit, 20))
       } catch (e) {
         setError(e.message)
       }
@@ -57,7 +58,7 @@ export default function WorkoutHome() {
     const { error } = await track(supabase.from('user_settings').update({ weight_unit }).eq('user_id', settings.user_id))
     if (error) setError(error.message)
     invalidateSettings()
-    setRecent(await fetchRecent(weight_unit))
+    setRecent(await fetchRecent(weight_unit, limit))
   }
 
   if (error && !settings)
@@ -101,7 +102,12 @@ export default function WorkoutHome() {
         </button>
       )}
 
-      <h2 className="section-title">Recent</h2>
+      <div className="history-head">
+        <h2 className="section-title">History</h2>
+        <Link to="/workout/import" className="link-btn">
+          Import from Hevy
+        </Link>
+      </div>
       {!recent ? (
         <p className="muted">Loading…</p>
       ) : recent.length === 0 ? (
@@ -126,17 +132,29 @@ export default function WorkoutHome() {
           ))}
         </ul>
       )}
+      {recent && recent.length === limit && (
+        <button
+          className="btn ghost show-older"
+          onClick={async () => {
+            const next = limit + 20
+            setLimit(next)
+            setRecent(await fetchRecent(settings.weight_unit, next))
+          }}
+        >
+          Show older
+        </button>
+      )}
     </section>
   )
 }
 
-async function fetchRecent(unit) {
+async function fetchRecent(unit, limit) {
   const { data: workouts, error } = await supabase
     .from('workouts')
     .select('*')
     .not('ended_at', 'is', null)
     .order('started_at', { ascending: false })
-    .limit(20)
+    .limit(limit)
   if (error) throw error
   if (!workouts.length) return []
   const { data: sets, error: e2 } = await supabase
