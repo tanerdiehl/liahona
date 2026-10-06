@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { track } from '../lib/saveStatus'
 import { addDays, formatLong, formatShort, todayISO } from '../lib/dates'
@@ -88,6 +89,14 @@ export default function BodyLog() {
       </div>
 
       {error && <p className="error">{error}</p>}
+
+      <Link to="/photos" className="card wa-link">
+        <span className="grow">
+          <strong>📷 Progress photos</strong>
+          <span className="muted small">Timeline and side-by-side compare</span>
+        </span>
+        <span aria-hidden>›</span>
+      </Link>
 
       <EntryForm
         key={editing?.id ?? 'new'}

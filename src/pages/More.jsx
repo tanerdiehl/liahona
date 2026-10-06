@@ -19,6 +19,9 @@ export default function More({ user }) {
           <Link to="/body">Body</Link>
         </li>
         <li>
+          <Link to="/photos">Progress photos</Link>
+        </li>
+        <li>
           <Link to="/protein">Protein</Link>
         </li>
         <li>
@@ -32,6 +35,9 @@ export default function More({ user }) {
         </li>
         <li>
           <Link to="/habits/manage">Edit habits</Link>
+        </li>
+        <li>
+          <Link to="/data">Your data (export / import)</Link>
         </li>
       </ul>
       <ul className="more-list card">

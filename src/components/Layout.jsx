@@ -25,7 +25,7 @@ const TABS = [
   { to: '/habits', label: 'Habits', icon: '◎' },
   { to: '/workout', label: 'Workout', icon: '◈' },
   { to: '/todo', label: 'To-do', icon: '☐' },
-  { to: '/more', label: 'More', icon: '⋯', also: ['/body', '/protein', '/goals', '/journal', '/analytics', '/habits/manage'] },
+  { to: '/more', label: 'More', icon: '⋯', also: ['/body', '/photos', '/data', '/protein', '/goals', '/journal', '/analytics', '/habits/manage'] },
 ]
 
 export default function Layout({ user }) {
@@ -50,9 +50,9 @@ export default function Layout({ user }) {
           ))}
         </nav>
         <SaveIndicator />
-        <button className="link-btn desktop-only" onClick={backup} disabled={backingUp} title="Download all your data as a file">
-          {backingUp ? 'Exporting…' : 'Backup'}
-        </button>
+        <NavLink to="/data" className="link-btn desktop-only" title="Export or import your data">
+          Data
+        </NavLink>
         <button className="link-btn desktop-only" title={user.email} onClick={() => supabase.auth.signOut()}>
           Sign out
         </button>

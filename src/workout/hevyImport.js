@@ -56,7 +56,8 @@ const KNOWN = {
   'Hammer Curl (Cable)': ['Biceps', 'Cable', 'weight_reps'],
 }
 
-const SET_TYPES = { normal: 'normal', warmup: 'warmup', dropset: 'drop', failure: 'failure' }
+const SET_TYPES = { normal: 'normal', warmup: 'warmup', dropset: 'drop', drop: 'drop', failure: 'failure' }
+const EXERCISE_TYPES = ['weight_reps', 'bodyweight_reps', 'weighted_bodyweight', 'assisted_bodyweight', 'duration', 'distance_duration']
 const MONTHS = { Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5, Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11 }
 
 export function parseCSV(text) {
@@ -122,14 +123,10 @@ export async function planHevyImport(text) {
   for (const r of rows) {
     const key = `${r.title}|${r.start_time}`
     if (!workouts.has(key)) {
-      const start = hevyDate(r.start_time)
-      workouts.set(key, {
-        title: r.title,
-        notes: r.description ?? '',
-        start,
-        end: r.end_time ? hevyDate(r.end_time) : start,
-        exercises: new Map(),
-      })
+      // Liahona exports carry exact ISO times; Hevy files only have minutes.
+      const start = r.started_at ? new Date(r.started_at) : hevyDate(r.start_time)
+      const end = r.ended_at ? new Date(r.ended_at) : r.end_time ? hevyDate(r.end_time) : start
+      workouts.set(key, { title: r.title, notes: r.description ?? '', start, end, exercises: new Map() })
     }
     const w = workouts.get(key)
     const name = ALIASES[r.exercise_title] ?? r.exercise_title
@@ -143,11 +140,17 @@ export async function planHevyImport(text) {
   const newExercises = [...names]
     .filter((n) => !byName.has(n))
     .map((n) => {
-      const [muscle_group, equipment, exercise_type] = KNOWN[n] ?? ['Other', 'Other', guessType(rows, n)]
+      const sample = rows.find((r) => (ALIASES[r.exercise_title] ?? r.exercise_title) === n)
+      const fromFile = sample?.muscle_group && EXERCISE_TYPES.includes(sample.exercise_type)
+        ? [sample.muscle_group, sample.equipment || 'Other', sample.exercise_type]
+        : null
+      const [muscle_group, equipment, exercise_type] = KNOWN[n] ?? fromFile ?? ['Other', 'Other', guessType(rows, n)]
       return { name: n, muscle_group, equipment, exercise_type, is_custom: true }
     })
 
   return {
+    // Files exported from Liahona are tagged 'import'; Hevy files 'hevy'.
+    source: rows[0].source && rows[0].source !== 'hevy' ? 'import' : 'hevy',
     workouts: fresh,
     skipped: all.length - fresh.length,
     setCount: fresh.reduce((n, w) => n + [...w.exercises.values()].reduce((m, e) => m + e.sets.length, 0), 0),
@@ -189,7 +192,7 @@ export async function runHevyImport(plan) {
       notes: w.notes,
       started_at: w.start.toISOString(),
       ended_at: w.end.toISOString(),
-      source: 'hevy',
+      source: plan.source,
     })
     let position = 0
     for (const [name, ex] of w.exercises) {
@@ -206,12 +209,13 @@ export async function runHevyImport(plan) {
             exercise_id: exerciseId,
             set_order: i,
             set_type: SET_TYPES[s.set_type] ?? 'normal',
-            weight: numOrNull(s.weight_lbs),
-            weight_unit: 'lbs',
+            // Prefer the original weight + unit when the file has them.
+            weight: s.weight_unit ? numOrNull(s.weight) : numOrNull(s.weight_lbs),
+            weight_unit: s.weight_unit || 'lbs',
             reps: numOrNull(s.reps),
             duration_seconds: numOrNull(s.duration_seconds),
-            distance: numOrNull(s.distance_miles),
-            distance_unit: 'mi',
+            distance: s.distance_unit ? numOrNull(s.distance) : numOrNull(s.distance_miles),
+            distance_unit: s.distance_unit || 'mi',
             rpe: numOrNull(s.rpe),
             completed: true,
             completed_at: w.end.toISOString(),

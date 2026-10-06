@@ -44,15 +44,15 @@ export default function ImportHevy() {
           ‹ Workouts
         </Link>
       </div>
-      <h1>Import from Hevy</h1>
+      <h1>Import workouts</h1>
       <p className="muted">
-        In Hevy: Profile → Settings → Export &amp; Import Data → Export Workouts. Then choose that
-        <code> workout_data.csv</code> file here. Workouts you've already imported are skipped automatically.
+        Choose a Hevy export (in Hevy: Profile → Settings → Export &amp; Import Data → Export Workouts) or a
+        workouts file you downloaded from Liahona. Workouts that are already here are skipped automatically.
       </p>
 
       <label className="file-pick card">
         <input type="file" accept=".csv,text/csv" onChange={choose} disabled={status === 'importing'} />
-        <span>{status === 'reading' ? 'Reading…' : 'Choose workout_data.csv'}</span>
+        <span>{status === 'reading' ? 'Reading…' : 'Choose a workouts CSV file'}</span>
       </label>
 
       {error && <p className="error">{error}</p>}

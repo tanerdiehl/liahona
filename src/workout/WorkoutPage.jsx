@@ -29,6 +29,7 @@ import { CSS } from '@dnd-kit/utilities'
 import ExercisePicker from './ExercisePicker'
 import { DEFAULT_REST, formatRest, REST_CHOICES, startRest } from './restTimer'
 import { warmupSets } from './warmup'
+import { suggestWeight } from './suggest'
 import WorkoutSummary from './WorkoutSummary'
 
 // /workout/:id — the live logger while a workout is open, the summary once
@@ -604,6 +605,8 @@ function ExerciseCard({ entry, exercise, target, rest, onRest, onAddWarmups, edi
         />
       )}
 
+      {!editing && type === 'weight_reps' && <Suggestion entry={entry} target={target} equipment={exercise?.equipment} />}
+
       {warmOpen && (
         <WarmupPanel
           entry={entry}
@@ -916,5 +919,23 @@ function WarmupPanel({ entry, equipment, onAdd, onClose }) {
         </button>
       </div>
     </div>
+  )
+}
+
+// A hint for today's working weight, from last session (and routine target).
+function Suggestion({ entry, target, equipment }) {
+  const [open, setOpen] = useState(false)
+  if (!entry.previous.length) return null
+  const unit = entry.sets[0]?.weight_unit ?? 'lbs'
+  const s = suggestWeight({ previous: entry.previous, targetReps: target?.target_reps, unit, equipment })
+  if (!s) return null
+  return (
+    <button className="suggestion" onClick={() => setOpen(!open)} aria-expanded={open}>
+      <span aria-hidden>💡</span>
+      <span>
+        {s.main}
+        {open && <span className="muted small suggestion-detail">{s.detail}</span>}
+      </span>
+    </button>
   )
 }
