@@ -1,6 +1,6 @@
 // Workout analytics, all derived from raw sets (nothing stored pre-summarised).
 // Warm-up sets are left out of volume, PRs and 1RM so they don't skew trends.
-import { addDays, formatShort, fromISO, startOfWeek, weekRange } from '../lib/dates'
+import { addDays, dateRange, formatShort, fromISO, startOfWeek, weekRange } from '../lib/dates'
 import { convertWeight, epley, workoutSeconds } from './lib'
 
 export const GRANULARITIES = [
@@ -12,6 +12,7 @@ const LOADED = new Set(['weight_reps', 'weighted_bodyweight'])
 const monthFmt = new Intl.DateTimeFormat(undefined, { month: 'short' })
 
 export function bucketKey(iso, g) {
+  if (g === 'day') return iso
   if (g === 'week') return startOfWeek(iso)
   if (g === 'month') return iso.slice(0, 7)
   return iso.slice(0, 4)
@@ -19,6 +20,7 @@ export function bucketKey(iso, g) {
 
 // Every bucket from first to last, so empty weeks/months show as gaps.
 export function bucketRange(firstIso, lastIso, g) {
+  if (g === 'day') return dateRange(firstIso, lastIso)
   if (g === 'week') return weekRange(startOfWeek(firstIso), startOfWeek(lastIso))
   const out = []
   if (g === 'month') {
@@ -37,13 +39,14 @@ export function bucketRange(firstIso, lastIso, g) {
 }
 
 export function bucketLabel(key, g) {
-  if (g === 'week') return formatShort(key)
+  if (g === 'day' || g === 'week') return formatShort(key)
   if (g === 'month') return `${monthFmt.format(new Date(+key.slice(0, 4), +key.slice(5) - 1, 1))} ’${key.slice(2, 4)}`
   return key
 }
 
 // Bucket boundaries as ISO dates, for filtering.
 export function bucketBounds(key, g) {
+  if (g === 'day') return [key, key]
   if (g === 'week') return [key, addDays(key, 6)]
   if (g === 'month') {
     const d = fromISO(`${key}-01`)

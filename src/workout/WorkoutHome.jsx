@@ -108,6 +108,14 @@ export default function WorkoutHome() {
 
       <RoutinesSection />
 
+      <Link to="/body" className="card wa-link library-link">
+        <span className="grow">
+          <strong>Body</strong>
+          <span className="muted small">Bodyweight and measurements</span>
+        </span>
+        <span aria-hidden>›</span>
+      </Link>
+
       <Link to="/workout/library" className="card wa-link library-link">
         <span className="grow">
           <strong>Exercises</strong>

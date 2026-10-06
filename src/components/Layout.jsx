@@ -13,6 +13,7 @@ const NAV = [
   { to: '/', label: 'Today', end: true },
   { to: '/habits', label: 'Habits' },
   { to: '/workout', label: 'Workout' },
+  { to: '/body', label: 'Body' },
   { to: '/protein', label: 'Protein' },
   { to: '/todo', label: 'To-do' },
   { to: '/goals', label: 'Goals' },
@@ -24,7 +25,7 @@ const TABS = [
   { to: '/habits', label: 'Habits', icon: '◎' },
   { to: '/workout', label: 'Workout', icon: '◈' },
   { to: '/todo', label: 'To-do', icon: '☐' },
-  { to: '/more', label: 'More', icon: '⋯', also: ['/protein', '/goals', '/journal', '/analytics', '/habits/manage'] },
+  { to: '/more', label: 'More', icon: '⋯', also: ['/body', '/protein', '/goals', '/journal', '/analytics', '/habits/manage'] },
 ]
 
 export default function Layout({ user }) {

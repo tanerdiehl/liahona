@@ -2590,3 +2590,67 @@ body.resting .content {
     padding-bottom: calc(150px + env(safe-area-inset-bottom));
   }
 }
+
+/* ---------- body log ---------- */
+.body-form {
+  display: grid;
+  gap: 12px;
+}
+.body-form p {
+  margin: 0;
+}
+.body-main {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.body-main input {
+  padding: 8px 10px;
+}
+.body-measures {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 8px;
+}
+.body-measures input {
+  padding: 6px 8px;
+}
+.body-log > .card + .card,
+.body-log .body-chart {
+  margin-top: 16px;
+}
+.body-chart {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.body-chart > * {
+  min-width: 0;
+}
+.body-history {
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+}
+.body-history li + li {
+  border-top: 1px solid var(--border);
+}
+.body-row {
+  width: 100%;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  border: none;
+  background: none;
+  padding: 10px 16px;
+  text-align: left;
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+}
+.body-date {
+  min-width: 46px;
+}
+.body-note {
+  display: block;
+  font-style: italic;
+}

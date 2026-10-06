@@ -18,6 +18,7 @@ import {
   timeline,
 } from './stats'
 import { BarChart, LineChart, TrainingCalendar } from './WorkoutCharts'
+import { bucketed, fetchBodyLogs, round1, series } from '../body/body'
 
 const COLOR = '#1D9E75' // physical-strength teal
 const LINE = '#7F77DD'
@@ -56,7 +57,7 @@ export default function WorkoutAnalytics() {
   useEffect(() => {
     ;(async () => {
       try {
-        const [settings, exercises, workouts, sets] = await Promise.all([
+        const [settings, exercises, workouts, sets, body] = await Promise.all([
           loadSettings(),
           fetchAll(() => supabase.from('exercises').select('*').order('id')),
           fetchAll(() =>
@@ -69,8 +70,9 @@ export default function WorkoutAnalytics() {
               .eq('completed', true)
               .order('id'),
           ),
+          fetchBodyLogs().catch(() => []),
         ])
-        setRaw({ unit: settings.weight_unit, exercises, workouts, sets })
+        setRaw({ unit: settings.weight_unit, exercises, workouts, sets, body })
       } catch (e) {
         setError(e.message)
       }
@@ -167,7 +169,13 @@ export default function WorkoutAnalytics() {
         </article>
       </div>
 
-      <ExerciseSection sessions={sessions} g={g} today={today} unit={unit} />
+      <ExerciseSection
+        sessions={sessions}
+        g={g}
+        today={today}
+        unit={unit}
+        weights={series(raw.body, 'bodyweight', unit)}
+      />
 
       <RecentPRs sessions={sessions} unit={unit} />
     </section>
@@ -248,7 +256,7 @@ function MuscleCard({ sessions, g, today, unit }) {
   )
 }
 
-function ExerciseSection({ sessions, g, today, unit }) {
+function ExerciseSection({ sessions, g, today, unit, weights }) {
   const location = useLocation()
   const options = useMemo(() => exercisesWithHistory(sessions), [sessions])
   const fallback = options.find((e) => e.exercise_type === 'weight_reps')?.id ?? options[0]?.id
@@ -333,6 +341,12 @@ function ExerciseSection({ sessions, g, today, unit }) {
               </div>
             )
           })}
+          {type === 'weight_reps' && weights.length > 0 && best((h) => h.bestE1rm) > 0 && (
+            <Stat
+              value={`${(best((h) => h.bestE1rm) / weights.at(-1).value).toFixed(2)}×`}
+              label="Best 1RM ÷ bodyweight"
+            />
+          )}
           <Stat value={history.length} label="Sessions" />
         </div>
       </div>
@@ -354,6 +368,21 @@ function ExerciseSection({ sessions, g, today, unit }) {
           />
           {type === 'weight_reps' && (
             <p className="muted small">Estimated 1RM = weight × (1 + reps ÷ 30), best set of each {g}.</p>
+          )}
+          {history.length > 0 && weights.some((w) => w.date >= history[0].date) && (
+            <>
+              <h3 className="wa-title">
+                Bodyweight <span className="muted small">({unit}, same timeline)</span>
+              </h3>
+              <LineChart
+                color="#3B4A6B"
+                format={(v) => `${Math.round(v)}`}
+                data={bucketed(weights, g, history[0].date, today).map((b) => ({
+                  ...b,
+                  tip: `${b.label}: ${round1(b.value)} ${unit}`,
+                }))}
+              />
+            </>
           )}
         </article>
 

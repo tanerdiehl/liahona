@@ -16,6 +16,9 @@ export default function More({ user }) {
           <Link to="/journal">Journal</Link>
         </li>
         <li>
+          <Link to="/body">Body</Link>
+        </li>
+        <li>
           <Link to="/protein">Protein</Link>
         </li>
         <li>
