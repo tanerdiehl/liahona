@@ -27,6 +27,8 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import ExercisePicker from './ExercisePicker'
+import { DEFAULT_REST, formatRest, REST_CHOICES, startRest } from './restTimer'
+import { warmupSets } from './warmup'
 import WorkoutSummary from './WorkoutSummary'
 
 // /workout/:id — the live logger while a workout is open, the summary once
@@ -91,6 +93,7 @@ function ActiveWorkout({ workout, editing, onFinished }) {
   const navigate = useNavigate()
   const now = useNow(1000)
   const [unit, setUnit] = useState('lbs')
+  const [restDefault, setRestDefault] = useState(DEFAULT_REST)
   const [exercises, setExercises] = useState({})
   const [entries, setEntries] = useState(null) // [{ we, sets, previous }]
   const [name, setName] = useState(workout.name)
@@ -112,7 +115,7 @@ function ActiveWorkout({ workout, editing, onFinished }) {
     if (!workout.routine_id) return
     supabase
       .from('routine_exercises')
-      .select('exercise_id,target_sets,target_reps')
+      .select('id,exercise_id,target_sets,target_reps,rest_seconds')
       .eq('routine_id', workout.routine_id)
       .then(({ data }) => data && setTargets(Object.fromEntries(data.map((t) => [t.exercise_id, t]))))
   }, [workout.routine_id])
@@ -130,6 +133,7 @@ function ActiveWorkout({ workout, editing, onFinished }) {
           ])
         if (e1 || e2 || e3) throw e1 || e2 || e3
         setUnit(settings.weight_unit)
+        setRestDefault(settings.rest_seconds ?? DEFAULT_REST)
         setExercises(Object.fromEntries(ex.map((e) => [e.id, e])))
         const previous = await Promise.all(
           wes.map((we) => fetchPreviousSets(we.exercise_id, workout.id, previousBefore).catch(() => [])),
@@ -239,11 +243,39 @@ function ActiveWorkout({ workout, editing, onFinished }) {
     await write(supabase.from('workout_sets').delete().eq('id', set.id), "Set wasn't removed")
   }
 
+  // Rest after a set: routine's rest > exercise's rest > your default.
+  function restFor(exerciseId) {
+    return targets[exerciseId]?.rest_seconds ?? exercises[exerciseId]?.rest_seconds ?? restDefault
+  }
+
+  async function setRest(entry, seconds) {
+    const t = targets[entry.we.exercise_id]
+    if (t && t.rest_seconds != null) {
+      setTargets((prev) => ({ ...prev, [entry.we.exercise_id]: { ...t, rest_seconds: seconds } }))
+      await write(supabase.from('routine_exercises').update({ rest_seconds: seconds }).eq('id', t.id), "Rest wasn't saved")
+    } else {
+      setExercises((prev) => ({ ...prev, [entry.we.exercise_id]: { ...prev[entry.we.exercise_id], rest_seconds: seconds } }))
+      await write(supabase.from('exercises').update({ rest_seconds: seconds }).eq('id', entry.we.exercise_id), "Rest wasn't saved")
+    }
+  }
+
+  // Adds warm-up sets (marked W) ahead of the working sets.
+  async function addWarmups(entry, list) {
+    const first = Math.min(0, ...entry.sets.map((s) => s.set_order))
+    const rows = list.map((w, i) => ({
+      ...newSet(entry.we, first - list.length + i, 'warmup'),
+      weight: w.weight,
+      reps: w.reps,
+    }))
+    setEntries((prev) => prev.map((e) => (e.we.id === entry.we.id ? { ...e, sets: [...rows, ...e.sets] } : e)))
+    await write(supabase.from('workout_sets').insert(rows), "Warm-up sets weren't added")
+  }
+
   // Checking a set: empty fields take last session's numbers (the ghosts).
   function toggleComplete(entry, set, index) {
     if (set.completed) return updateSet(entry.we.id, set.id, { completed: false, completed_at: null }, true)
     const type = exercises[entry.we.exercise_id]?.exercise_type ?? 'weight_reps'
-    const ghost = entry.previous[index]
+    const ghost = ghostFor(entry, index)
     // When editing a past workout, date the set to that workout, not today.
     const fields = { completed: true, completed_at: editing ? times.ended_at : new Date().toISOString() }
     if (ghost) {
@@ -260,6 +292,7 @@ function ActiveWorkout({ workout, editing, onFinished }) {
       return
     }
     updateSet(entry.we.id, set.id, fields, true)
+    if (!editing) startRest(restFor(entry.we.exercise_id), exercises[entry.we.exercise_id]?.name)
   }
 
   function cycleSetType(entry, set) {
@@ -455,6 +488,10 @@ function ActiveWorkout({ workout, editing, onFinished }) {
           entry={entry}
           exercise={exercises[entry.we.exercise_id]}
           target={targets[entry.we.exercise_id]}
+          rest={restFor(entry.we.exercise_id)}
+          onRest={(s) => setRest(entry, s)}
+          onAddWarmups={(list) => addWarmups(entry, list)}
+          editing={editing}
           onUpdate={(set, fields) => updateSet(entry.we.id, set.id, fields)}
           onToggle={(set, i) => toggleComplete(entry, set, i)}
           onCycleType={(set) => cycleSetType(entry, set)}
@@ -489,11 +526,12 @@ function ActiveWorkout({ workout, editing, onFinished }) {
   )
 }
 
-function ExerciseCard({ entry, exercise, target, onUpdate, onToggle, onCycleType, onAddSet, onRemoveSet, onRemove, onNotes }) {
+function ExerciseCard({ entry, exercise, target, rest, onRest, onAddWarmups, editing, onUpdate, onToggle, onCycleType, onAddSet, onRemoveSet, onRemove, onNotes }) {
   const [showNotes, setShowNotes] = useState(Boolean(entry.we.notes))
   const [notes, setNotes] = useState(entry.we.notes)
   const type = exercise?.exercise_type ?? 'weight_reps'
   const cfg = EXERCISE_TYPES[type]
+  const [warmOpen, setWarmOpen] = useState(false)
   let workingNumber = 0
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({
     id: entry.we.id,
@@ -528,6 +566,25 @@ function ExerciseCard({ entry, exercise, target, onUpdate, onToggle, onCycleType
             )}
           </span>
         </div>
+        {!editing && (
+          <label className="rest-chip" title="Rest after each set">
+            ⏱ {formatRest(rest)}
+            <select value={rest} onChange={(e) => onRest(Number(e.target.value))} aria-label="Rest time">
+              {[...new Set([...REST_CHOICES, rest])]
+                .sort((a, b) => a - b)
+                .map((s) => (
+                  <option key={s} value={s}>
+                    {s ? `Rest ${formatRest(s)}` : 'No rest timer'}
+                  </option>
+                ))}
+            </select>
+          </label>
+        )}
+        {type === 'weight_reps' && (
+          <button className="link-btn" onClick={() => setWarmOpen(!warmOpen)}>
+            Warm up
+          </button>
+        )}
         {!showNotes && (
           <button className="link-btn" onClick={() => setShowNotes(true)}>
             Note
@@ -547,6 +604,18 @@ function ExerciseCard({ entry, exercise, target, onUpdate, onToggle, onCycleType
         />
       )}
 
+      {warmOpen && (
+        <WarmupPanel
+          entry={entry}
+          equipment={exercise?.equipment}
+          onAdd={(list) => {
+            onAddWarmups(list)
+            setWarmOpen(false)
+          }}
+          onClose={() => setWarmOpen(false)}
+        />
+      )}
+
       <div className={`set-grid cols-${cfg.fields.length}`}>
         <div className="set-row head">
           <span>Set</span>
@@ -559,7 +628,7 @@ function ExerciseCard({ entry, exercise, target, onUpdate, onToggle, onCycleType
         </div>
 
         {entry.sets.map((set, i) => {
-          const ghost = entry.previous[i]
+          const ghost = ghostFor(entry, i)
           const label = SET_TYPES[set.set_type].short ?? String(++workingNumber)
           return (
             <div key={set.id} className={`set-row ${set.completed ? 'done' : ''}`}>
@@ -787,6 +856,65 @@ function WhenEditor({ times, onSave }) {
         End
         <input type="time" value={end} onChange={(e) => setEnd(e.target.value)} onBlur={commit} />
       </label>
+    </div>
+  )
+}
+
+// Last session's matching set: the k-th warm-up lines up with the k-th
+// warm-up from last time, the k-th working set with the k-th working set,
+// so adding warm-ups doesn't shift the grey numbers.
+function ghostFor(entry, index) {
+  const isWarm = (s) => s.set_type === 'warmup'
+  const set = entry.sets[index]
+  const same = entry.sets.slice(0, index).filter((s) => isWarm(s) === isWarm(set)).length
+  return entry.previous.filter((s) => isWarm(s) === isWarm(set))[same]
+}
+
+function WarmupPanel({ entry, equipment, onAdd, onClose }) {
+  const unit = entry.sets[0]?.weight_unit ?? 'lbs'
+  // Start from this workout's first working weight, or last time's.
+  const firstWorking = entry.sets.find((s) => s.set_type !== 'warmup' && s.weight != null)
+  const lastTime = entry.previous.find((s) => s.set_type !== 'warmup' && s.weight != null)
+  const initial = firstWorking
+    ? Number(firstWorking.weight)
+    : lastTime
+      ? roundWeight(convertWeight(Number(lastTime.weight), lastTime.weight_unit, unit))
+      : ''
+  const [working, setWorking] = useState(String(initial))
+  const list = warmupSets(Number(working), unit, equipment)
+
+  return (
+    <div className="warmup-panel">
+      <label>
+        Working weight ({unit})
+        <input
+          className="set-input"
+          inputMode="decimal"
+          value={working}
+          onChange={(e) => setWorking(e.target.value.replace(',', '.'))}
+          autoFocus
+        />
+      </label>
+      {list.length ? (
+        <ol className="warmup-list">
+          {list.map((w, i) => (
+            <li key={i}>
+              <span className="set-num t-warmup">W</span>
+              {w.weight} {unit} × {w.reps}
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <p className="muted small">Enter your working weight to see warm-up sets.</p>
+      )}
+      <div className="form-actions">
+        <button className="btn ghost small" onClick={onClose}>
+          Cancel
+        </button>
+        <button className="btn primary small" disabled={!list.length} onClick={() => onAdd(list)}>
+          Add {list.length} warm-up set{list.length === 1 ? '' : 's'}
+        </button>
+      </div>
     </div>
   )
 }

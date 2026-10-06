@@ -13,6 +13,7 @@ import { supabase } from '../lib/supabase'
 import { track } from '../lib/saveStatus'
 import { fetchRoutineData, startFromRoutine } from './routines'
 import ExercisePicker from './ExercisePicker'
+import { formatRest, REST_CHOICES } from './restTimer'
 
 // /workout/routine/:id — edit a routine. Everything saves as you go.
 export default function RoutineEditor() {
@@ -229,6 +230,21 @@ function RoutineItem({ item, onSave, onRemove }) {
               placeholder={timed ? '0:45' : '8–12'}
               onSave={(v) => onSave(item, { target_reps: v.trim() })}
             />
+          </label>
+          <label>
+            Rest
+            <select
+              className="target-select"
+              value={item.rest_seconds ?? ''}
+              onChange={(e) => onSave(item, { rest_seconds: e.target.value === '' ? null : Number(e.target.value) })}
+            >
+              <option value="">Default</option>
+              {REST_CHOICES.map((s) => (
+                <option key={s} value={s}>
+                  {s ? formatRest(s) : 'Off'}
+                </option>
+              ))}
+            </select>
           </label>
         </div>
       </div>

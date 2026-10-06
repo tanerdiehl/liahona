@@ -5,6 +5,7 @@ import { useSaveStatus } from '../lib/saveStatus'
 import { downloadBackup } from '../lib/backup'
 import Toaster from './Toaster'
 import ActiveWorkoutBar from '../workout/ActiveWorkoutBar'
+import RestTimerBar from '../workout/RestTimerBar'
 
 // Desktop top nav shows everything; the phone tab bar keeps the daily
 // essentials and tucks the rest under "More".
@@ -61,6 +62,8 @@ export default function Layout({ user }) {
         <ActiveWorkoutBar />
         <Outlet />
       </main>
+
+      <RestTimerBar />
 
       <nav className="tabbar">
         {TABS.map((n) => (

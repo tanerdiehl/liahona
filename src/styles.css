@@ -2452,3 +2452,141 @@ body.no-scroll {
   display: block;
   margin: 16px auto 0;
 }
+
+/* ---------- rest timer ---------- */
+.rest-bar {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 16px;
+  width: min(480px, calc(100vw - 24px));
+  background: var(--text);
+  color: var(--bg);
+  border-radius: 16px;
+  overflow: hidden;
+  z-index: 30;
+  box-shadow: 0 10px 30px rgba(20, 20, 40, 0.25);
+}
+@media (max-width: 700px) {
+  .rest-bar {
+    bottom: calc(68px + env(safe-area-inset-bottom));
+  }
+}
+.rest-progress {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: color-mix(in srgb, #1d9e75 45%, transparent);
+  transition: width 0.25s linear;
+}
+.rest-content {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+}
+.rest-time {
+  flex: 1;
+  display: grid;
+  text-align: center;
+}
+.rest-time strong {
+  font-size: 1.5rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+.rest-label {
+  font-size: 0.75rem;
+  opacity: 0.8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rest-btn {
+  border: none;
+  background: rgba(255, 255, 255, 0.14);
+  color: inherit;
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-weight: 600;
+  cursor: pointer;
+  min-width: 48px;
+}
+@media (prefers-color-scheme: dark) {
+  .rest-btn {
+    background: rgba(0, 0, 0, 0.12);
+  }
+}
+.rest-chip {
+  position: relative;
+  font-size: 0.8rem;
+  color: var(--muted);
+  background: var(--surface-2);
+  border-radius: 999px;
+  padding: 3px 10px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.rest-chip select {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  width: 100%;
+  font-size: 16px;
+}
+
+/* ---------- warm-up calculator ---------- */
+.warmup-panel {
+  margin-top: 10px;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  display: grid;
+  gap: 10px;
+}
+.warmup-panel label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text);
+}
+.warmup-panel .set-input {
+  width: 90px;
+  background: var(--surface);
+}
+.warmup-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+  font-variant-numeric: tabular-nums;
+}
+.warmup-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.warmup-list .set-num {
+  height: 24px;
+  cursor: default;
+}
+.target-select {
+  font: inherit;
+  font-size: 16px;
+  padding: 5px 6px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+}
+
+body.resting .content {
+  padding-bottom: 110px;
+}
+@media (max-width: 700px) {
+  body.resting .content {
+    padding-bottom: calc(150px + env(safe-area-inset-bottom));
+  }
+}
