@@ -1,6 +1,7 @@
 import { supabase } from './supabase'
 import { fetchAll } from './habits'
 import { todayISO } from './dates'
+import { getSettings, invalidateSettings } from './settings'
 
 const TABLES = [
   'habits',
@@ -38,6 +39,17 @@ export async function downloadBackup() {
   const a = document.createElement('a')
   a.href = url
   a.download = `liahona-backup-${todayISO()}.json`
+  document.body.appendChild(a)
   a.click()
-  URL.revokeObjectURL(url)
+  a.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 2000)
+
+  // Remember when, for the monthly backup reminder (synced across devices).
+  try {
+    const settings = await getSettings()
+    await supabase.from('user_settings').update({ last_backup_at: new Date().toISOString() }).eq('user_id', settings.user_id)
+    invalidateSettings()
+  } catch {
+    /* the backup itself still downloaded */
+  }
 }

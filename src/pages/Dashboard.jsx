@@ -11,6 +11,8 @@ import { useTasks } from '../lib/useTasks'
 import { celebrateHabit } from '../lib/celebrate'
 import { dailyInspiration, TOPIC_LABELS } from '../lib/inspiration'
 import { PROTEIN_MAX, PROTEIN_MIN } from './Protein'
+import WorkoutPanel from '../workout/WorkoutPanel'
+import BackupReminder from '../components/BackupReminder'
 
 const LIST_KEY = 'liahona.todo.list'
 function readList() {
@@ -41,8 +43,11 @@ export default function Dashboard({ user }) {
         </div>
       </div>
       <DailyThought />
+      <BackupReminder />
+      <WeeklyReviewNudge />
       <div className="dash-grid">
         <TodayHabits user={user} />
+        <WorkoutPanel />
         <ProteinToday />
         <TasksPanel />
         <GoalsPeek />
@@ -376,5 +381,20 @@ function JournalPeek() {
         </Link>
       )}
     </Panel>
+  )
+}
+
+// Sat–Mon: a nudge to do the weekly review.
+function WeeklyReviewNudge() {
+  const day = new Date().getDay()
+  if (![0, 1, 6].includes(day)) return null
+  return (
+    <Link to="/review" className="card wa-link review-nudge">
+      <span className="grow">
+        <strong>🗓 Weekly review</strong>
+        <span className="muted small">See how last week went and plan the next one.</span>
+      </span>
+      <span aria-hidden>›</span>
+    </Link>
   )
 }

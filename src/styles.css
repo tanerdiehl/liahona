@@ -2833,3 +2833,137 @@ body.resting .content {
 .data-page .file-pick {
   margin-top: 8px;
 }
+
+/* ---------- offline ---------- */
+.aw-offline {
+  background: var(--surface-2);
+  color: var(--text);
+  padding: 10px 12px;
+  border-radius: 10px;
+  margin: 8px 0;
+  font-size: 0.9rem;
+}
+.offline-done {
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+}
+.offline-done p {
+  margin: 0;
+}
+
+/* ---------- auto goals ---------- */
+.metric-editor {
+  display: grid;
+  gap: 10px;
+}
+.metric-editor p {
+  margin: 0;
+}
+.metric-editor .ex-select {
+  margin-bottom: 0;
+}
+.metric-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.metric-row input {
+  padding: 8px 10px;
+}
+/* ---------- backup reminder ---------- */
+.backup-reminder {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+  border-left: 4px solid #ba7517;
+}
+.backup-reminder .grow {
+  display: grid;
+  min-width: 200px;
+}
+.backup-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* ---------- weekly review & dashboard workout ---------- */
+.review-card {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.review-card p {
+  margin: 0;
+}
+.review-habits {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.review-habits li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.review-bar {
+  width: 90px;
+  flex: none;
+}
+.review-count {
+  min-width: 34px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.review-yes {
+  color: var(--success);
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+.review-prs ul,
+.review-tasks {
+  margin: 4px 0 0;
+  padding-left: 18px;
+  font-size: 0.9rem;
+}
+.review-tasks {
+  list-style: none;
+  padding-left: 0;
+  color: var(--muted);
+}
+.review-weekly {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.review-list {
+  margin-bottom: 12px;
+}
+.review-list p {
+  margin: 4px 8px;
+}
+.review-reflect {
+  display: grid;
+  gap: 10px;
+}
+.review-nudge {
+  margin-bottom: 16px;
+}
+.dash-routines {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.dash-resume {
+  background: var(--surface-2);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+.dash-weight input {
+  padding: 8px 10px;
+}

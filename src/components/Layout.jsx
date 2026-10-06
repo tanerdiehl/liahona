@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useSaveStatus } from '../lib/saveStatus'
+import { useOutbox } from '../lib/outbox'
 import { downloadBackup } from '../lib/backup'
 import Toaster from './Toaster'
 import ActiveWorkoutBar from '../workout/ActiveWorkoutBar'
@@ -25,7 +26,7 @@ const TABS = [
   { to: '/habits', label: 'Habits', icon: '◎' },
   { to: '/workout', label: 'Workout', icon: '◈' },
   { to: '/todo', label: 'To-do', icon: '☐' },
-  { to: '/more', label: 'More', icon: '⋯', also: ['/body', '/photos', '/data', '/protein', '/goals', '/journal', '/analytics', '/habits/manage'] },
+  { to: '/more', label: 'More', icon: '⋯', also: ['/review', '/body', '/photos', '/data', '/protein', '/goals', '/journal', '/analytics', '/habits/manage'] },
 ]
 
 export default function Layout({ user }) {
@@ -89,6 +90,13 @@ export default function Layout({ user }) {
 
 function SaveIndicator() {
   const { pending, error } = useSaveStatus()
+  const box = useOutbox()
+  if (box.pending > 0)
+    return (
+      <span className={`save-status ${box.offline ? 'bad' : ''}`} title="Changes saved on this device, waiting to upload">
+        {box.offline ? `Offline · ${box.pending} waiting` : 'Syncing…'}
+      </span>
+    )
   if (pending > 0) return <span className="save-status">Saving…</span>
   if (error)
     return (

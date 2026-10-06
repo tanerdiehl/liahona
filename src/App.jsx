@@ -23,6 +23,7 @@ import RoutineEditor from './workout/RoutineEditor'
 import BodyLog from './body/BodyLog'
 import ProgressPhotos from './body/ProgressPhotos'
 import DataPage from './pages/DataPage'
+import WeeklyReview from './pages/WeeklyReview'
 
 export default function App() {
   // undefined = still checking stored session, null = signed out
@@ -63,6 +64,7 @@ export default function App() {
           <Route path="body" element={<BodyLog />} />
           <Route path="photos" element={<ProgressPhotos />} />
           <Route path="data" element={<DataPage />} />
+          <Route path="review" element={<WeeklyReview />} />
           <Route path="workout/:id" element={<WorkoutPage />} />
           <Route path="more" element={<More user={user} />} />
           <Route path="*" element={<Navigate to="/" replace />} />

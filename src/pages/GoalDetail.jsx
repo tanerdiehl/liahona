@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { fetchHabits, fetchAll } from '../lib/habits'
-import { PROGRESS_TYPES, TIERS } from '../lib/goals'
+import { attachMetrics, goalProgress, METRICS, PROGRESS_TYPES, TIERS } from '../lib/goals'
 import { track } from '../lib/saveStatus'
 import GoalProgress from '../components/GoalProgress'
 
@@ -26,6 +26,7 @@ export default function GoalDetail() {
       if (e1 || e2) throw e1 || e2
       if (!g) return setError('Goal not found.')
       g.goal_items.sort((a, b) => (a.created_at < b.created_at ? -1 : 1))
+      await attachMetrics([g])
       setGoal(g)
       setHabits(h.filter((x) => !x.archived))
       setTasks(t)
@@ -92,6 +93,11 @@ export default function GoalDetail() {
       <h2 className="section-title">Progress</h2>
       <div className="card form-card">
         <GoalProgress goal={goal} />
+        {goalProgress(goal).reached && !goal.completed_at && (
+          <button className="btn primary" onClick={() => saveGoal({ completed_at: new Date().toISOString() })}>
+            🎉 Target reached — mark achieved
+          </button>
+        )}
         <Segmented
           label="Track progress as"
           options={PROGRESS_TYPES.map((t) => [t.id, t.label])}
@@ -114,6 +120,7 @@ export default function GoalDetail() {
             />
           </label>
         )}
+        {goal.progress_type === 'metric' && <MetricEditor goal={goal} onSave={saveGoal} />}
       </div>
 
       <h2 className="section-title">Habits that build toward this</h2>
@@ -333,5 +340,94 @@ function Segmented({ label, options, value, onChange }) {
         ))}
       </div>
     </fieldset>
+  )
+}
+
+// "Auto" goals: pick what to track; progress updates from your logged data.
+function MetricEditor({ goal, onSave }) {
+  const [exercises, setExercises] = useState([])
+  useEffect(() => {
+    fetchAll(() => supabase.from('exercises').select('id,name,exercise_type,archived').order('name'))
+      .then((list) =>
+        setExercises(list.filter((e) => !e.archived && ['weight_reps', 'weighted_bodyweight'].includes(e.exercise_type))),
+      )
+      .catch(() => {})
+  }, [])
+  const kind = METRICS.find((m) => m.id === goal.metric_kind)
+  const unit = goal._unit ?? 'lbs'
+  const num = (v) => {
+    const n = Number(String(v).replace(',', '.'))
+    return String(v).trim() === '' || isNaN(n) ? null : n
+  }
+  const round1 = (v) => Math.round(v * 10) / 10
+
+  return (
+    <div className="metric-editor">
+      <label>
+        Track
+        <select
+          className="ex-select"
+          value={goal.metric_kind ?? ''}
+          onChange={(e) => onSave({ metric_kind: e.target.value || null })}
+        >
+          <option value="">Choose what to track…</option>
+          {METRICS.map((m) => (
+            <option key={m.id} value={m.id}>
+              {m.label}
+            </option>
+          ))}
+        </select>
+      </label>
+      {kind?.needsExercise && (
+        <label>
+          Exercise
+          <select
+            className="ex-select"
+            value={goal.metric_exercise_id ?? ''}
+            onChange={(e) => onSave({ metric_exercise_id: e.target.value || null })}
+          >
+            <option value="">Choose an exercise…</option>
+            {exercises.map((e) => (
+              <option key={e.id} value={e.id}>
+                {e.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+      {kind && (
+        <div className="metric-row">
+          <label>
+            Starting point ({unit})
+            <BlurInput
+              inputMode="decimal"
+              value={goal.metric_start == null ? '' : String(goal.metric_start)}
+              onSave={(v) => onSave({ metric_start: num(v) })}
+            />
+          </label>
+          <label>
+            Target ({unit})
+            <BlurInput
+              inputMode="decimal"
+              value={goal.metric_target == null ? '' : String(goal.metric_target)}
+              onSave={(v) => onSave({ metric_target: num(v) })}
+            />
+          </label>
+        </div>
+      )}
+      {goal._current != null && (
+        <p className="muted small">
+          Right now: <strong>{round1(goal._current)} {unit}</strong> — this updates by itself as you log.{' '}
+          {goal.metric_start == null && (
+            <button className="link-btn" onClick={() => onSave({ metric_start: round1(goal._current) })}>
+              Use as starting point
+            </button>
+          )}
+        </p>
+      )}
+      {kind && goal._current == null && (goal.metric_exercise_id || !kind.needsExercise) && (
+        <p className="muted small">No data logged for this yet — progress will appear once you do.</p>
+      )}
+    </div>
   )
 }
