@@ -2967,3 +2967,22 @@ body.resting .content {
 .dash-weight input {
   padding: 8px 10px;
 }
+
+/* ---------- protein target editor ---------- */
+.target-editor {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.target-editor label {
+  font-size: 0.75rem;
+}
+.target-editor input {
+  width: 72px;
+  padding: 6px 8px;
+  text-align: center;
+}
+.target-editor .muted {
+  padding-bottom: 8px;
+}

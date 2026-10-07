@@ -4,7 +4,7 @@ import { fetchAll, fetchHabits } from '../lib/habits'
 import { habitStats, pctLabel } from '../lib/stats'
 import { addDays, todayISO } from '../lib/dates'
 import { Heatmap, ProteinChart, TrendBars } from '../components/Charts'
-import { PROTEIN_MAX, PROTEIN_MIN } from './Protein'
+import { useProteinTarget } from '../lib/proteinTarget'
 import { Link } from 'react-router-dom'
 import { fetchGoals, TIERS } from '../lib/goals'
 import GoalProgress from '../components/GoalProgress'
@@ -165,6 +165,7 @@ const monthLabelFmt = new Intl.DateTimeFormat(undefined, { month: 'short' })
 
 // Side-by-side completion rates per month or per year, oldest → newest.
 function Compare({ habits, statsById, protein }) {
+  const { min: PROTEIN_MIN, max: PROTEIN_MAX } = useProteinTarget()
   const [mode, setMode] = useState('month')
   const scroller = useRef(null)
   const len = mode === 'month' ? 7 : 4
@@ -338,6 +339,7 @@ function HabitCard({ habit, logs, s }) {
 }
 
 function ProteinSummary({ totals, trackingStart }) {
+  const { min: PROTEIN_MIN, max: PROTEIN_MAX } = useProteinTarget()
   const today = todayISO()
   const logged = [...totals.entries()].filter(([, g]) => g > 0)
   const hit = logged.filter(([, g]) => g >= PROTEIN_MIN).length

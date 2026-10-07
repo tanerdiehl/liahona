@@ -9,7 +9,6 @@ import { useTasks } from '../lib/useTasks'
 import TaskList from '../components/TaskList'
 import { buildModel, prEvents } from '../workout/stats'
 import { convertWeight, formatDuration, roundWeight } from '../workout/lib'
-import { PROTEIN_MIN } from './Protein'
 
 const round1 = (v) => Math.round(v * 10) / 10
 
@@ -89,6 +88,7 @@ async function load(from, to) {
     fetchAll(() => supabase.from('journal_entries').select('entry_date').gte('entry_date', from).lte('entry_date', to).order('id')),
   ])
   const unit = settings.weight_unit
+  const PROTEIN_MIN = settings.protein_min ?? 119
   const start = settings.tracking_start ?? ''
 
   // Habits: share of days done (daily) or done/not (weekly).
@@ -127,6 +127,7 @@ async function load(from, to) {
     proteinAvg: proteinDays.length ? proteinDays.reduce((a, b) => a + b, 0) / proteinDays.length : null,
     proteinHit: proteinDays.filter((g) => g >= PROTEIN_MIN).length,
     proteinLogged: proteinDays.length,
+    proteinMin: PROTEIN_MIN,
     weight: endW ? { end: endW.v, change: startW && startW !== endW ? endW.v - startW.v : null } : null,
     tasksDone: tasks,
     journalCount: journal.length,
@@ -201,7 +202,7 @@ function Summary({ data }) {
         <h2 className="wa-title">Nutrition &amp; body</h2>
         <div className="stat-row">
           <Stat value={data.proteinAvg == null ? '—' : `${Math.round(data.proteinAvg)} g`} label="Avg protein / logged day" />
-          <Stat value={`${data.proteinHit}/${data.proteinLogged}`} label={`Days ≥ ${PROTEIN_MIN} g`} />
+          <Stat value={`${data.proteinHit}/${data.proteinLogged}`} label={`Days ≥ ${data.proteinMin} g`} />
           <Stat value={data.weight ? `${round1(data.weight.end)} ${unit}` : '—'} label="Bodyweight" />
           {data.weight?.change != null && (
             <Stat

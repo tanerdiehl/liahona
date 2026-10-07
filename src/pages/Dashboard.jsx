@@ -10,7 +10,7 @@ import TaskList from '../components/TaskList'
 import { useTasks } from '../lib/useTasks'
 import { celebrateHabit } from '../lib/celebrate'
 import { dailyInspiration, TOPIC_LABELS } from '../lib/inspiration'
-import { PROTEIN_MAX, PROTEIN_MIN } from './Protein'
+import { useProteinTarget } from '../lib/proteinTarget'
 import WorkoutPanel from '../workout/WorkoutPanel'
 import BackupReminder from '../components/BackupReminder'
 
@@ -175,6 +175,7 @@ function TodayHabits({ user }) {
 }
 
 function ProteinToday() {
+  const { min: PROTEIN_MIN, max: PROTEIN_MAX } = useProteinTarget()
   const today = todayISO()
   const [total, setTotal] = useState(null)
   const [grams, setGrams] = useState('')

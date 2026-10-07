@@ -3,15 +3,16 @@ import { supabase } from '../lib/supabase'
 import { fetchAll } from '../lib/habits'
 import { track } from '../lib/saveStatus'
 import { addDays, formatLong, formatShort, todayISO } from '../lib/dates'
+import { saveProteinTarget, useProteinTarget } from '../lib/proteinTarget'
 
-export const PROTEIN_MIN = 119
-export const PROTEIN_MAX = 167
 const PAGE = 30 // days shown per "Show more"
 
 const timeFmt = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' })
 const round = (n) => Math.round(n * 10) / 10
 
 export default function Protein() {
+  const { min: PROTEIN_MIN, max: PROTEIN_MAX } = useProteinTarget()
+  const [editingTarget, setEditingTarget] = useState(false)
   const today = todayISO()
   const [date, setDate] = useState(today)
   const [entries, setEntries] = useState(null)
@@ -108,11 +109,17 @@ export default function Protein() {
         <div className="protein-total">
           <span className="big">{total}</span>
           <span className="muted">
-            g · target {PROTEIN_MIN}–{PROTEIN_MAX}g
+            g · target {PROTEIN_MIN}–{PROTEIN_MAX}g{' '}
+            <button className="link-btn" onClick={() => setEditingTarget(!editingTarget)}>
+              {editingTarget ? 'Cancel' : 'Edit'}
+            </button>
           </span>
         </div>
-        <ProteinBar total={total} />
-        <p className="muted small">{statusText(total)}</p>
+        {editingTarget && (
+          <TargetEditor min={PROTEIN_MIN} max={PROTEIN_MAX} onDone={() => setEditingTarget(false)} onError={setError} />
+        )}
+        <ProteinBar total={total} min={PROTEIN_MIN} max={PROTEIN_MAX} />
+        <p className="muted small">{statusText(total, PROTEIN_MIN, PROTEIN_MAX)}</p>
 
         <form className="quick-add" onSubmit={add}>
           <input
@@ -178,7 +185,7 @@ export default function Protein() {
   )
 }
 
-function statusText(total) {
+function statusText(total, PROTEIN_MIN, PROTEIN_MAX) {
   if (total === 0) return 'Nothing logged yet.'
   if (total < PROTEIN_MIN) return `${round(PROTEIN_MIN - total)} g to reach your target.`
   if (total <= PROTEIN_MAX) return 'In your target range.'
@@ -186,7 +193,7 @@ function statusText(total) {
 }
 
 // Bar scaled to 200g with the target band shaded.
-function ProteinBar({ total }) {
+function ProteinBar({ total, min: PROTEIN_MIN, max: PROTEIN_MAX }) {
   const scale = Math.max(200, total)
   const pct = (n) => `${(n / scale) * 100}%`
   const inRange = total >= PROTEIN_MIN
@@ -195,5 +202,48 @@ function ProteinBar({ total }) {
       <span className="band" style={{ left: pct(PROTEIN_MIN), width: pct(PROTEIN_MAX - PROTEIN_MIN) }} />
       <span className={`fill ${inRange ? 'hit' : ''}`} style={{ width: pct(total) }} />
     </div>
+  )
+}
+
+// Change your daily target range. Applies everywhere (charts, dashboard,
+// weekly review), including how past days are counted as "hit".
+function TargetEditor({ min, max, onDone, onError }) {
+  const [lo, setLo] = useState(String(min))
+  const [hi, setHi] = useState(String(max))
+  const [busy, setBusy] = useState(false)
+
+  async function save(e) {
+    e.preventDefault()
+    const a = parseInt(lo, 10)
+    const b = parseInt(hi, 10)
+    if (!(a > 0 && b >= a && b < 1000)) return onError('Enter a low and high target, e.g. 140 and 180.')
+    setBusy(true)
+    try {
+      await saveProteinTarget(a, b)
+      onError('')
+      onDone()
+    } catch (err) {
+      onError(`Not saved — ${err.message}`)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <form className="target-editor" onSubmit={save}>
+      <label>
+        At least
+        <input inputMode="numeric" value={lo} onChange={(e) => setLo(e.target.value)} autoFocus />
+      </label>
+      <span className="times">–</span>
+      <label>
+        Up to
+        <input inputMode="numeric" value={hi} onChange={(e) => setHi(e.target.value)} />
+      </label>
+      <span className="muted small">g / day</span>
+      <button className="btn primary small" disabled={busy}>
+        {busy ? 'Saving…' : 'Save'}
+      </button>
+    </form>
   )
 }
