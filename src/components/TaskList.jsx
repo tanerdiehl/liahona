@@ -100,6 +100,16 @@ function TaskRow({ task, api, goalTitle }) {
           {goalTitle}
         </Link>
       )}
+      {task.list === 'week' && (
+        <button
+          className="move-btn"
+          disabled={task.pending}
+          onClick={() => api.moveTo(task, 'todo')}
+          title="Move to today's To-do list"
+        >
+          → To-do
+        </button>
+      )}
       <button
         className="icon-btn keep-x"
         disabled={task.pending}

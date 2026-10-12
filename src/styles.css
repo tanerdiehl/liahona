@@ -2986,3 +2986,68 @@ body.resting .content {
 .target-editor .muted {
   padding-bottom: 8px;
 }
+
+.move-btn {
+  flex: none;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--accent);
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+/* ---------- muscle map ---------- */
+.muscle-map {
+  display: grid;
+  gap: 6px;
+  justify-items: center;
+}
+.muscle-map svg {
+  width: 100%;
+  max-width: 340px;
+  height: auto;
+}
+.muscle-map.compact svg {
+  max-width: 280px;
+}
+.muscle-map p {
+  margin: 0;
+}
+.muscle-legend {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.legend-ramp {
+  width: 90px;
+  height: 8px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, color-mix(in srgb, #1d9e75 25%, var(--surface-2)), #1d9e75);
+}
+.summary-muscles {
+  display: grid;
+  gap: 8px;
+}
+
+/* ---------- AI report ---------- */
+.report-export {
+  display: grid;
+  gap: 10px;
+  margin: 12px 0;
+}
+.report-export .btn {
+  justify-self: start;
+}
+.report-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.report-text {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.75rem !important;
+  line-height: 1.4;
+}

@@ -29,7 +29,6 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import ExercisePicker from './ExercisePicker'
-import { DEFAULT_REST, formatRest, REST_CHOICES, startRest } from './restTimer'
 import { warmupSets } from './warmup'
 import { suggestWeight } from './suggest'
 import WorkoutSummary from './WorkoutSummary'
@@ -120,7 +119,6 @@ function ActiveWorkout({ workout, editing, onFinished }) {
   const navigate = useNavigate()
   const now = useNow(1000)
   const [unit, setUnit] = useState('lbs')
-  const [restDefault, setRestDefault] = useState(DEFAULT_REST)
   const [exercises, setExercises] = useState({})
   const [entries, setEntries] = useState(null) // [{ we, sets, previous }]
   const [name, setName] = useState(workout.name)
@@ -153,7 +151,6 @@ function ActiveWorkout({ workout, editing, onFinished }) {
       const cached = readWorkoutCache(workout.id)
       const applyCache = (c) => {
         setUnit(c.unit ?? 'lbs')
-        setRestDefault(c.restDefault ?? DEFAULT_REST)
         setExercises(c.exercises ?? {})
         if (c.targets) setTargets(c.targets)
         setEntries(c.entries ?? [])
@@ -170,7 +167,6 @@ function ActiveWorkout({ workout, editing, onFinished }) {
           ])
         if (e1 || e2 || e3) throw e1 || e2 || e3
         setUnit(settings.weight_unit)
-        setRestDefault(settings.rest_seconds ?? DEFAULT_REST)
         setExercises(Object.fromEntries(ex.map((e) => [e.id, e])))
         const previous = await Promise.all(
           wes.map((we) => fetchPreviousSets(we.exercise_id, workout.id, previousBefore).catch(() => [])),
@@ -195,9 +191,8 @@ function ActiveWorkout({ workout, editing, onFinished }) {
       exercises: used,
       targets,
       unit,
-      restDefault,
     })
-  }, [entries, exercises, targets, unit, restDefault, name, notes, times, workout])
+  }, [entries, exercises, targets, unit, name, notes, times, workout])
 
   // ---------- saving ----------
   // Every change goes into the save queue on this phone first (see
@@ -294,21 +289,6 @@ function ActiveWorkout({ workout, editing, onFinished }) {
     await write(db('workout_sets').delete().eq('id', set.id), "Set wasn't removed")
   }
 
-  // Rest after a set: routine's rest > exercise's rest > your default.
-  function restFor(exerciseId) {
-    return targets[exerciseId]?.rest_seconds ?? exercises[exerciseId]?.rest_seconds ?? restDefault
-  }
-
-  async function setRest(entry, seconds) {
-    const t = targets[entry.we.exercise_id]
-    if (t && t.rest_seconds != null) {
-      setTargets((prev) => ({ ...prev, [entry.we.exercise_id]: { ...t, rest_seconds: seconds } }))
-      await write(db('routine_exercises').update({ rest_seconds: seconds }).eq('id', t.id), "Rest wasn't saved")
-    } else {
-      setExercises((prev) => ({ ...prev, [entry.we.exercise_id]: { ...prev[entry.we.exercise_id], rest_seconds: seconds } }))
-      await write(db('exercises').update({ rest_seconds: seconds }).eq('id', entry.we.exercise_id), "Rest wasn't saved")
-    }
-  }
 
   // Adds warm-up sets (marked W) ahead of the working sets.
   async function addWarmups(entry, list) {
@@ -343,7 +323,6 @@ function ActiveWorkout({ workout, editing, onFinished }) {
       return
     }
     updateSet(entry.we.id, set.id, fields, true)
-    if (!editing) startRest(restFor(entry.we.exercise_id), exercises[entry.we.exercise_id]?.name)
   }
 
   function cycleSetType(entry, set) {
@@ -555,8 +534,6 @@ function ActiveWorkout({ workout, editing, onFinished }) {
           entry={entry}
           exercise={exercises[entry.we.exercise_id]}
           target={targets[entry.we.exercise_id]}
-          rest={restFor(entry.we.exercise_id)}
-          onRest={(s) => setRest(entry, s)}
           onAddWarmups={(list) => addWarmups(entry, list)}
           editing={editing}
           onUpdate={(set, fields) => updateSet(entry.we.id, set.id, fields)}
@@ -593,7 +570,7 @@ function ActiveWorkout({ workout, editing, onFinished }) {
   )
 }
 
-function ExerciseCard({ entry, exercise, target, rest, onRest, onAddWarmups, editing, onUpdate, onToggle, onCycleType, onAddSet, onRemoveSet, onRemove, onNotes }) {
+function ExerciseCard({ entry, exercise, target, onAddWarmups, editing, onUpdate, onToggle, onCycleType, onAddSet, onRemoveSet, onRemove, onNotes }) {
   const [showNotes, setShowNotes] = useState(Boolean(entry.we.notes))
   const [notes, setNotes] = useState(entry.we.notes)
   const type = exercise?.exercise_type ?? 'weight_reps'
@@ -633,20 +610,6 @@ function ExerciseCard({ entry, exercise, target, rest, onRest, onAddWarmups, edi
             )}
           </span>
         </div>
-        {!editing && (
-          <label className="rest-chip" title="Rest after each set">
-            ⏱ {formatRest(rest)}
-            <select value={rest} onChange={(e) => onRest(Number(e.target.value))} aria-label="Rest time">
-              {[...new Set([...REST_CHOICES, rest])]
-                .sort((a, b) => a - b)
-                .map((s) => (
-                  <option key={s} value={s}>
-                    {s ? `Rest ${formatRest(s)}` : 'No rest timer'}
-                  </option>
-                ))}
-            </select>
-          </label>
-        )}
         {type === 'weight_reps' && (
           <button className="link-btn" onClick={() => setWarmOpen(!warmOpen)}>
             Warm up

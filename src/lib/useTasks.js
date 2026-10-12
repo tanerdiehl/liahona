@@ -71,6 +71,18 @@ export function useTasks(list = 'todo') {
   }
 
   const reopen = (task) => update(task.id, { completed_at: null })
+
+  // Moves a task to the other list (e.g. from This week to today's To-do),
+  // placing it at the bottom there.
+  function moveTo(task, newList) {
+    const there = (tasks ?? []).filter((t) => !t.completed_at && (t.list ?? 'todo') === newList)
+    const sort_order = Math.max(0, ...there.map((t) => t.sort_order)) + 1
+    return update(task.id, {
+      list: newList,
+      week_start: newList === 'week' ? startOfWeek(todayISO()) : null,
+      sort_order,
+    })
+  }
   const rename = (task, title) => update(task.id, { title })
 
   async function remove(task) {
@@ -99,5 +111,5 @@ export function useTasks(list = 'todo') {
     update(activeId, { sort_order })
   }
 
-  return { tasks, open, done, error, add, complete, reopen, rename, remove, reorder }
+  return { tasks, open, done, error, add, complete, reopen, rename, remove, reorder, moveTo }
 }

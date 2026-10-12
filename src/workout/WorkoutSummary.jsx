@@ -5,6 +5,7 @@ import { fetchAll } from '../lib/habits'
 import { track } from '../lib/saveStatus'
 import { formatLong } from '../lib/dates'
 import { repeatWorkout, saveWorkoutAsRoutine } from './routines'
+import MuscleMap from './MuscleMap'
 import {
   convertWeight,
   epley,
@@ -152,6 +153,19 @@ export default function WorkoutSummary({ workout, justFinished, onEdit }) {
         </button>
       </div>
       {error && <p className="error">{error}</p>}
+
+      <div className="card summary-muscles">
+        <h2 className="wa-title">Muscles worked</h2>
+        <MuscleMap
+          compact
+          sets={sets.reduce((acc, s) => {
+            if (s.set_type === 'warmup') return acc
+            const m = wes.find((w) => w.id === s.workout_exercise_id)?.exercises?.muscle_group
+            if (m) acc[m] = (acc[m] ?? 0) + 1
+            return acc
+          }, {})}
+        />
+      </div>
 
       {prs.length > 0 && (
         <div className="card pr-card">
