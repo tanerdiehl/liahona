@@ -1,6 +1,5 @@
 import { useSyncExternalStore } from 'react'
 import confetti from 'canvas-confetti'
-import { ALL_HABITS_DONE, HABIT_DONE, pick } from './quips'
 
 // ---------- toasts ----------
 let toasts = []
@@ -67,18 +66,9 @@ export function bigCelebration(colors) {
 
 // ---------- habits ----------
 
-// Called when a habit cell turns ✓. Reminds you *why* you do it.
-// allDone: every daily habit is now ✓ for that day.
+// Called when a habit cell turns ✓: confetti only (no pop-up message).
+// allDone: every daily habit is now ✓ for that day — a bigger celebration.
 export function celebrateHabit(habit, el, { allDone = false, colors } = {}) {
-  if (allDone) {
-    bigCelebration(colors)
-    toast({ title: pick(ALL_HABITS_DONE), color: habit.color, duration: 4500 })
-    return
-  }
-  burst(el, habit.color)
-  toast({
-    title: `${habit.name} ✓`,
-    body: habit.why?.trim() ? `Why: ${habit.why.trim()}` : pick(HABIT_DONE),
-    color: habit.color,
-  })
+  if (allDone) bigCelebration(colors)
+  else burst(el, habit.color)
 }
