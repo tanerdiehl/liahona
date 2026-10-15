@@ -26,7 +26,7 @@ function useTip() {
   return { wrap, handlers, node, hide: () => setTip(null) }
 }
 
-const STATUS_WORD = { done: 'Done', missed: 'Missed' }
+const STATUS_WORD = { done: 'Done', minimum: 'Minimum', missed: 'Missed' }
 
 // GitHub-style calendar: one column per week, one row per weekday.
 // Weekly habits get a single row of week cells instead.
@@ -57,6 +57,7 @@ export function Heatmap({ habit, logs, start, maxWeeks = Infinity }) {
   function fillFor(unit) {
     const s = logs.get(unit)
     if (s === 'done') return habit.color
+    if (s === 'minimum') return `color-mix(in srgb, ${habit.color} 40%, var(--surface-2))`
     if (s === 'missed') return 'var(--danger-soft)'
     const inRange = unit >= start && unit <= (weekly ? thisWeek : today)
     return inRange ? 'var(--surface-2)' : 'transparent'

@@ -308,7 +308,7 @@ function HabitCard({ habit, logs, s }) {
 
       <div className="stat-row">
         {s.windows.map(([label, r]) => (
-          <div key={label} className="stat" title={r ? `${r.done} of ${r.total}` : 'Nothing tracked yet'}>
+          <div key={label} className="stat" title={r ? `${r.done} of ${r.total}${r.min ? ` (${r.min} minimum)` : ''}` : 'Nothing tracked yet'}>
             <span className="stat-value">{pctLabel(r)}</span>
             <span className="stat-label">{label}</span>
           </div>
@@ -323,6 +323,12 @@ function HabitCard({ habit, logs, s }) {
           <span className="stat-value">{plural(s.longest)}</span>
           <span className="stat-label">Longest streak</span>
         </div>
+        {s.doneCount > 0 && (
+          <div className="stat" title="Days you did just the bare minimum (they still count)">
+            <span className="stat-value">{Math.round((s.minimumCount / s.doneCount) * 100)}%</span>
+            <span className="stat-label">Minimum-only</span>
+          </div>
+        )}
       </div>
 
       {s.trend && (

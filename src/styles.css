@@ -3051,3 +3051,11 @@ body.resting .content {
   font-size: 0.75rem !important;
   line-height: 1.4;
 }
+
+/* "minimum" habit day: hollow green check */
+.cell.minimum {
+  background: var(--success-soft);
+  border: 2px solid var(--success);
+  color: var(--success);
+  font-weight: 700;
+}

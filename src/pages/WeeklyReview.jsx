@@ -6,6 +6,7 @@ import { track } from '../lib/saveStatus'
 import { addDays, dateRange, formatShort, startOfWeek, todayISO } from '../lib/dates'
 import { getSettings } from '../lib/settings'
 import { useTasks } from '../lib/useTasks'
+import { counts } from '../lib/habitStatus'
 import TaskList from '../components/TaskList'
 import { buildModel, prEvents } from '../workout/stats'
 import { convertWeight, formatDuration, roundWeight } from '../workout/lib'
@@ -96,7 +97,7 @@ async function load(from, to) {
   const habitRows = habits
     .filter((h) => !h.archived)
     .map((h) => {
-      const mine = logs.filter((l) => l.habit_id === h.id && l.status === 'done')
+      const mine = logs.filter((l) => l.habit_id === h.id && counts(l.status))
       if (h.frequency === 'weekly') return { h, weekly: true, done: mine.some((l) => l.date === from) }
       return { h, done: mine.filter((l) => days.includes(l.date)).length, total: days.length }
     })
@@ -263,7 +264,7 @@ function PlanAhead({ thisWeek, today }) {
           'habit_id',
           habits.map((h) => h.id),
         )
-      setWeekly(habits.map((h) => ({ h, done: data?.some((l) => l.habit_id === h.id && l.status === 'done') })))
+      setWeekly(habits.map((h) => ({ h, done: data?.some((l) => l.habit_id === h.id && counts(l.status)) })))
     })().catch(() => {})
   }, [thisWeek])
 

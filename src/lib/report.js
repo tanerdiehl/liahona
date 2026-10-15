@@ -43,7 +43,7 @@ export async function buildReport() {
   out.push(
     `> Suggested prompt: "This is an export from my personal tracking app (habits, workouts, nutrition, bodyweight, goals). Please analyze my progress: what's improving, what's stalling, any muscle-group imbalances or training gaps, how consistent I've been, and give me 3–5 specific, practical recommendations for the next 4 weeks."`,
   )
-  out.push(`Units: weights in ${unit}. Protein target: ${settings.protein_min ?? 119}–${settings.protein_max ?? 167} g/day. Weeks start on Sunday. Warm-up sets are excluded from volume, PRs and estimated 1RM (Epley: weight × (1 + reps/30)).`)
+  out.push(`Units: weights in ${unit}. Protein target: ${settings.protein_min ?? 119}–${settings.protein_max ?? 167} g/day. Weeks start on Sunday. Warm-up sets are excluded from volume, PRs and estimated 1RM (Epley: weight × (1 + reps/30)). Habit days are marked done (full effort), minimum (just the bare minimum — counts toward streaks/completion), or missed.`)
 
   // ---------- Training ----------
   const { sessions } = buildModel({ workouts, sets, exercises, unit })
@@ -156,11 +156,11 @@ export async function buildReport() {
   out.push(
     active.length
       ? table(
-          ['Habit', 'Frequency', 'Window 1', 'Window 2', 'All time', 'Current streak', 'Longest streak'],
+          ['Habit', 'Frequency', 'Window 1', 'Window 2', 'All time', 'Current streak', 'Longest streak', 'Minimum-only'],
           active.map((h) => {
             const s = habitStats(h, logsBy.get(h.id) ?? new Map(), today, trackingStart)
             const [a, b, c] = s.windows
-            return [h.name, h.frequency, `${a[0]}: ${pct(a[1]?.pct)}`, `${b[0]}: ${pct(b[1]?.pct)}`, pct(c[1]?.pct), s.currentStreak, s.longest]
+            return [h.name, h.frequency, `${a[0]}: ${pct(a[1]?.pct)}`, `${b[0]}: ${pct(b[1]?.pct)}`, pct(c[1]?.pct), s.currentStreak, s.longest, `${s.minimumCount} of ${s.doneCount}`]
           }),
         )
       : 'No habits.',

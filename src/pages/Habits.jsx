@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { fetchHabits, seedIfNeeded } from '../lib/habits'
 import { track } from '../lib/saveStatus'
 import { celebrateHabit } from '../lib/celebrate'
+import { counts, LABEL, NEXT_STATUS, SYMBOL } from '../lib/habitStatus'
 import { maxDate, useTrackingStart } from '../lib/settings'
 import {
   addDays,
@@ -18,7 +19,6 @@ import {
 
 const DAYS_SHOWN = 14
 const WEEKS_SHOWN = 8
-const NEXT_STATUS = { none: 'done', done: 'missed', missed: 'none' }
 const key = (habitId, date) => `${habitId}|${date}`
 const monthFmt = new Intl.DateTimeFormat(undefined, { month: 'short' })
 
@@ -98,7 +98,7 @@ export default function Habits({ user }) {
       const h = habits.find((x) => x.id === habitId)
       const daily = habits.filter((x) => x.frequency !== 'weekly')
       const allDone =
-        h.frequency !== 'weekly' && daily.every((x) => x.id === habitId || logs[key(x.id, date)] === 'done')
+        h.frequency !== 'weekly' && daily.every((x) => x.id === habitId || counts(logs[key(x.id, date)]))
       celebrateHabit(h, el, { allDone, colors: habits.map((x) => x.color) })
     }
     setLogs((prev) => {
@@ -267,9 +267,9 @@ function HabitGrid({ habits, columns, logs, expanded, goalTitles, onToggle, onCy
                         <button
                           className={`cell ${status}`}
                           onClick={(e) => onCycle(h.id, c.id, e.currentTarget)}
-                          aria-label={`${h.name}, ${c.label}: ${status === 'none' ? 'blank' : status}`}
+                          aria-label={`${h.name}, ${c.label}: ${LABEL[status]}`}
                         >
-                          {status === 'done' ? '✓' : status === 'missed' ? '✕' : ''}
+                          {SYMBOL[status] ?? ''}
                         </button>
                       </td>
                     )

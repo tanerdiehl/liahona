@@ -1,4 +1,5 @@
 import { addDays, dateRange, startOfMonth, startOfWeek, todayISO, weekRange } from './dates'
+import { counts } from './habitStatus'
 
 // Scoring rules (see README):
 // - A habit is tracked from its start_date (or its earliest log, if earlier),
@@ -21,13 +22,14 @@ export function habitStats(habit, logs, today = todayISO(), trackingStart = null
 
   const units = weekly ? weekRange(start, current) : dateRange(start, current)
   const counted = units.filter((u) => u !== current || logs.has(u))
-  const isDone = (u) => logs.get(u) === 'done'
+  const isDone = (u) => counts(logs.get(u))
+  const isMin = (u) => logs.get(u) === 'minimum'
 
   const rate = (from) => {
     const c = counted.filter((u) => u >= from)
     if (c.length === 0) return null
     const done = c.filter(isDone).length
-    return { pct: done / c.length, done, total: c.length }
+    return { pct: done / c.length, done, total: c.length, min: c.filter(isMin).length }
   }
 
   const windows = weekly
@@ -88,7 +90,11 @@ export function habitStats(habit, logs, today = todayISO(), trackingStart = null
     return out
   }
 
-  return { weekly, start, windows, currentStreak, longest, trend, monthly: bucket(7), yearly: bucket(4) }
+  // Days (or weeks) that were minimum-only, out of all that counted.
+  const minimumCount = counted.filter(isMin).length
+  const doneCount = counted.filter(isDone).length
+
+  return { weekly, start, windows, currentStreak, longest, trend, monthly: bucket(7), yearly: bucket(4), minimumCount, doneCount }
 }
 
 export const pctLabel = (r) => (r == null ? '—' : `${Math.round(r.pct * 100)}%`)

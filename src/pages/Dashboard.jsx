@@ -9,6 +9,7 @@ import GoalProgress from '../components/GoalProgress'
 import TaskList from '../components/TaskList'
 import { useTasks } from '../lib/useTasks'
 import { celebrateHabit } from '../lib/celebrate'
+import { counts, LABEL, NEXT_STATUS, SYMBOL } from '../lib/habitStatus'
 import { dailyInspiration, TOPIC_LABELS } from '../lib/inspiration'
 import { useProteinTarget } from '../lib/proteinTarget'
 import WorkoutPanel from '../workout/WorkoutPanel'
@@ -23,7 +24,6 @@ function readList() {
   }
 }
 
-const NEXT_STATUS = { none: 'done', done: 'missed', missed: 'none' }
 
 function greeting() {
   const h = new Date().getHours()
@@ -111,7 +111,7 @@ function TodayHabits({ user }) {
     const next = NEXT_STATUS[logs[h.id] ?? 'none']
     if (next === 'done') {
       const daily = habits.filter((x) => x.frequency !== 'weekly')
-      const allDone = h.frequency !== 'weekly' && daily.every((x) => x.id === h.id || logs[x.id] === 'done')
+      const allDone = h.frequency !== 'weekly' && daily.every((x) => x.id === h.id || counts(logs[x.id]))
       celebrateHabit(h, el, { allDone, colors: habits.map((x) => x.color) })
     }
     setLogs((prev) => {
@@ -137,7 +137,7 @@ function TodayHabits({ user }) {
     })
   }
 
-  const doneCount = habits ? habits.filter((h) => logs[h.id] === 'done').length : 0
+  const doneCount = habits ? habits.filter((h) => counts(logs[h.id])).length : 0
 
   return (
     <Panel title="Today" to="/habits" linkLabel="All habits" className="dash-habits">
@@ -157,9 +157,9 @@ function TodayHabits({ user }) {
                   <button
                     className={`cell ${s}`}
                     onClick={(e) => cycle(h, e.currentTarget)}
-                    aria-label={`${h.name}: ${s === 'none' ? 'blank' : s}`}
+                    aria-label={`${h.name}: ${LABEL[s]}`}
                   >
-                    {s === 'done' ? '✓' : s === 'missed' ? '✕' : ''}
+                    {SYMBOL[s] ?? ''}
                   </button>
                   <span className="dot" style={{ background: h.color }} />
                   <span className="grow">{h.name}</span>
