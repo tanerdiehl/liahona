@@ -6,6 +6,7 @@ import { track } from '../lib/saveStatus'
 import { formatLong } from '../lib/dates'
 import { repeatWorkout, saveWorkoutAsRoutine } from './routines'
 import MuscleMap from './MuscleMap'
+import { clearWorkoutCache } from './workoutCache'
 import {
   convertWeight,
   epley,
@@ -93,6 +94,8 @@ export default function WorkoutSummary({ workout, justFinished, onEdit }) {
     if (!window.confirm('Delete this workout and all its sets permanently?')) return
     const { error } = await track(supabase.from('workouts').delete().eq('id', workout.id))
     if (error) return setError(error.message)
+    // Forget this phone's copy so it can never be re-uploaded.
+    clearWorkoutCache(workout.id)
     navigate('/workout')
   }
 

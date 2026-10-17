@@ -2,21 +2,21 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { track } from '../lib/saveStatus'
-import { formatLong, todayISO } from '../lib/dates'
+import { addDays, formatLong, todayISO } from '../lib/dates'
 import {
-  defaultWorkoutName,
   ensureExercisesSeeded,
   fetchActiveWorkout,
   formatDuration,
   formatVolume,
   loadSettings,
   setVolume,
-  uuid,
   workoutSeconds,
 } from './lib'
 import { useNow } from './useNow'
 import { invalidateSettings } from '../lib/settings'
 import RoutinesSection from './RoutinesSection'
+import { logPastWorkout, startWorkout } from './routines'
+import { pendingWorkouts, useWorkoutSync } from './workoutSync'
 
 export default function WorkoutHome() {
   const navigate = useNavigate()
@@ -45,12 +45,8 @@ export default function WorkoutHome() {
   async function start() {
     if (active) return navigate(`/workout/${active.id}`)
     setStarting(true)
-    const id = uuid()
-    const { error } = await track(
-      supabase.from('workouts').insert({ id, name: defaultWorkoutName(), workout_date: todayISO() }),
-    )
+    const { id } = await startWorkout({})
     setStarting(false)
-    if (error) return setError(`Couldn't start — ${error.message}`)
     navigate(`/workout/${id}`)
   }
 
@@ -106,6 +102,8 @@ export default function WorkoutHome() {
         </button>
       )}
 
+      <PastWorkout />
+
       <RoutinesSection />
 
       <Link to="/body" className="card wa-link library-link">
@@ -130,6 +128,7 @@ export default function WorkoutHome() {
           Import from Hevy
         </Link>
       </div>
+      <Uploading />
       {!recent ? (
         <p className="muted">Loading…</p>
       ) : recent.length === 0 ? (
@@ -167,6 +166,79 @@ export default function WorkoutHome() {
         </button>
       )}
     </section>
+  )
+}
+
+// Log a workout you already did: pick the day and times, then fill it in.
+function PastWorkout() {
+  const navigate = useNavigate()
+  const [open, setOpen] = useState(false)
+  const [date, setDate] = useState(addDays(todayISO(), -1))
+  const [start, setStart] = useState('17:00')
+  const [end, setEnd] = useState('18:00')
+  const [busy, setBusy] = useState(false)
+  if (!open)
+    return (
+      <button className="link-btn past-link" onClick={() => setOpen(true)}>
+        + Log a past workout
+      </button>
+    )
+  return (
+    <div className="card past-workout">
+      <strong>Log a past workout</strong>
+      <div className="when-editor">
+        <label>
+          Date
+          <input type="date" value={date} max={todayISO()} onChange={(e) => setDate(e.target.value)} />
+        </label>
+        <label>
+          Start
+          <input type="time" value={start} onChange={(e) => setStart(e.target.value)} />
+        </label>
+        <label>
+          End
+          <input type="time" value={end} onChange={(e) => setEnd(e.target.value)} />
+        </label>
+      </div>
+      <div className="form-actions">
+        <button className="btn ghost small" onClick={() => setOpen(false)}>
+          Cancel
+        </button>
+        <button
+          className="btn primary small"
+          disabled={!date || !start || !end || busy}
+          onClick={async () => {
+            setBusy(true)
+            const { id } = await logPastWorkout({ date, start, end })
+            navigate(`/workout/${id}`, { state: { edit: true } })
+          }}
+        >
+          {busy ? 'Opening…' : 'Add exercises'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// Finished workouts still uploading from this phone.
+function Uploading() {
+  useWorkoutSync()
+  const list = pendingWorkouts().filter((c) => c.workout.ended_at)
+  if (!list.length) return null
+  return (
+    <ul className="workout-list">
+      {list.map((c) => (
+        <li key={c.workout.id}>
+          <Link to={`/workout/${c.workout.id}`} className="card workout-row">
+            <span className="workout-row-head">
+              <strong>{c.workout.name || 'Workout'}</strong>
+              <span className="muted small">{formatLong(c.workout.workout_date)}</span>
+            </span>
+            <span className="muted small">⏳ Saved on this phone, uploading…</span>
+          </Link>
+        </li>
+      ))}
+    </ul>
   )
 }
 

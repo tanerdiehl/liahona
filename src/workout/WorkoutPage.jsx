@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { track } from '../lib/saveStatus'
 import { bigCelebration, toast } from '../lib/celebrate'
 import {
   convertWeight,
@@ -17,8 +16,8 @@ import {
   workoutSeconds,
 } from './lib'
 import { useNow } from './useNow'
-import { clearOutboxError, drain, enqueue, hasPendingFor, useOutbox } from '../lib/outbox'
-import { clearWorkoutCache, readWorkoutCache, writeWorkoutCache } from './workoutCache'
+import { readWorkoutCache } from './workoutCache'
+import { cacheWorkout, discardWorkout, isDirty, saveWorkoutLocal, syncSoon, useWorkoutSync } from './workoutSync'
 import { closestCenter, DndContext, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import {
   arrayMove,
@@ -37,17 +36,23 @@ import WorkoutSummary from './WorkoutSummary'
 // it's finished.
 export default function WorkoutPage() {
   const { id } = useParams()
+  const location = useLocation()
   const [workout, setWorkout] = useState(undefined)
-  const [editing, setEditing] = useState(false)
+  // A just-created past workout opens straight into the editor.
+  const [editing, setEditing] = useState(Boolean(location.state?.edit))
   const [error, setError] = useState('')
 
   const [savedOffline, setSavedOffline] = useState(false)
 
-  // Uses this device's copy when there are changes that haven't synced yet,
+  // Uses this device's copy when it has changes that haven't uploaded yet,
   // or when there's no connection.
   const load = useCallback(async () => {
     const cached = readWorkoutCache(id)
-    if (cached?.workout && hasPendingFor(id)) return setWorkout(cached.workout)
+    if (cached?.workout && isDirty(id)) {
+      // Finished but still uploading: the summary needs the server's copy.
+      if (cached.workout.ended_at && !location.state?.edit) setSavedOffline(true)
+      return setWorkout(cached.workout)
+    }
     const { data, error } = await supabase.from('workouts').select('*').eq('id', id).maybeSingle()
     if (error) {
       if (cached?.workout) setWorkout(cached.workout)
@@ -63,10 +68,10 @@ export default function WorkoutPage() {
     return (
       <section className="narrow">
         <div className="card offline-done">
-          <h1>Workout finished ✓</h1>
+          <h1>Workout saved ✓</h1>
           <p>
-            You're offline, so it's saved on this phone for now. It will upload automatically as soon as you have
-            signal — no need to keep the app open.
+            It's saved on this phone and still uploading (slow or no signal). It keeps trying on its own until it's
+            in — nothing is lost if you close the app.
           </p>
           <Link to="/workout" className="btn primary">
             Back to workouts
@@ -156,7 +161,7 @@ function ActiveWorkout({ workout, editing, onFinished }) {
         setEntries(c.entries ?? [])
       }
       // Unsynced changes on this phone are newer than the server's copy.
-      if (cached?.entries && hasPendingFor(workout.id)) return applyCache(cached)
+      if (cached?.entries && isDirty(workout.id)) return applyCache(cached)
       try {
         const [settings, { data: ex, error: e1 }, { data: wes, error: e2 }, { data: sets, error: e3 }] =
           await Promise.all([
@@ -181,78 +186,33 @@ function ActiveWorkout({ workout, editing, onFinished }) {
     })()
   }, [workout.id])
 
-  // Keep a copy of this workout on the phone (for reopening with no signal).
-  useEffect(() => {
-    if (!entries) return
-    const used = Object.fromEntries(entries.map((e) => [e.we.exercise_id, exercises[e.we.exercise_id]]))
-    writeWorkoutCache(workout.id, {
-      workout: { ...workout, ...times, name, notes },
-      entries,
-      exercises: used,
-      targets,
-      unit,
-    })
-  }, [entries, exercises, targets, unit, name, notes, times, workout])
-
   // ---------- saving ----------
-  // Every change goes into the save queue on this phone first (see
-  // lib/outbox.js), then uploads — so nothing is lost with bad gym signal.
-  // Typing is batched for 0.6s; checking a set queues immediately.
-  const box = useOutbox()
-  const pending = useRef({})
-  const timers = useRef({})
-
-  const flush = useCallback(
-    (setId) => {
-      clearTimeout(timers.current[setId])
-      const fields = pending.current[setId]
-      if (!fields) return true
-      delete pending.current[setId]
-      enqueue({
-        table: 'workout_sets',
-        action: 'update',
-        values: { ...fields, updated_at: new Date().toISOString() },
-        match: { id: setId },
-        workoutId: workout.id,
-      })
-      return true
-    },
-    [workout.id],
-  )
-
-  const flushAll = useCallback(() => {
-    Object.keys(pending.current).forEach(flush)
-    return true
-  }, [flush])
-
-  // Save before the phone locks or Safari is closed.
+  // Every change is saved on this phone instantly, and the whole workout
+  // uploads in the background (see workoutSync.js) — so bad gym signal
+  // never loses anything, and there's nothing to wait for.
+  const sync = useWorkoutSync()
+  const snapshot = () => {
+    const used = Object.fromEntries(entries.map((e) => [e.we.exercise_id, exercises[e.we.exercise_id]]))
+    return { workout: { ...workout, ...times, name, notes }, entries, exercises: used, targets, unit }
+  }
+  const loaded = useRef(false)
+  const closed = useRef(false)
   useEffect(() => {
-    const onHide = () => document.visibilityState === 'hidden' && flushAll()
-    document.addEventListener('visibilitychange', onHide)
-    window.addEventListener('pagehide', flushAll)
-    return () => {
-      document.removeEventListener('visibilitychange', onHide)
-      window.removeEventListener('pagehide', flushAll)
-      flushAll()
+    if (!entries || closed.current) return
+    // Opening a workout just keeps a copy; only real changes upload.
+    if (!loaded.current) {
+      loaded.current = true
+      if (!isDirty(workout.id)) return cacheWorkout(workout.id, snapshot())
     }
-  }, [flushAll])
+    saveWorkoutLocal(workout.id, snapshot())
+  }, [entries, name, notes, times]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  function updateSet(weId, setId, fields, immediate = false) {
+  function updateSet(weId, setId, fields) {
     setEntries((prev) =>
       prev.map((e) =>
         e.we.id === weId ? { ...e, sets: e.sets.map((s) => (s.id === setId ? { ...s, ...fields } : s)) } : e,
       ),
     )
-    pending.current[setId] = { ...pending.current[setId], ...fields }
-    clearTimeout(timers.current[setId])
-    if (immediate) flush(setId)
-    else timers.current[setId] = setTimeout(() => flush(setId), 600)
-  }
-
-  // Queues a change, written like a normal query: write(db('table').update(v).eq('id', x)).
-  function write(query) {
-    enqueue({ ...query.op, workoutId: workout.id })
-    return true
   }
 
   // ---------- sets ----------
@@ -274,24 +234,19 @@ function ActiveWorkout({ workout, editing, onFinished }) {
     }
   }
 
-  async function addSet(entry) {
+  function addSet(entry) {
     const s = newSet(entry.we, Math.max(-1, ...entry.sets.map((x) => x.set_order)) + 1)
     setEntries((prev) => prev.map((e) => (e.we.id === entry.we.id ? { ...e, sets: [...e.sets, s] } : e)))
-    await write(db('workout_sets').insert(s), "Set wasn't added")
   }
 
-  async function removeSet(entry, set) {
-    clearTimeout(timers.current[set.id])
-    delete pending.current[set.id]
+  function removeSet(entry, set) {
     setEntries((prev) =>
       prev.map((e) => (e.we.id === entry.we.id ? { ...e, sets: e.sets.filter((x) => x.id !== set.id) } : e)),
     )
-    await write(db('workout_sets').delete().eq('id', set.id), "Set wasn't removed")
   }
 
-
   // Adds warm-up sets (marked W) ahead of the working sets.
-  async function addWarmups(entry, list) {
+  function addWarmups(entry, list) {
     const first = Math.min(0, ...entry.sets.map((s) => s.set_order))
     const rows = list.map((w, i) => ({
       ...newSet(entry.we, first - list.length + i, 'warmup'),
@@ -299,16 +254,14 @@ function ActiveWorkout({ workout, editing, onFinished }) {
       reps: w.reps,
     }))
     setEntries((prev) => prev.map((e) => (e.we.id === entry.we.id ? { ...e, sets: [...rows, ...e.sets] } : e)))
-    await write(db('workout_sets').insert(rows), "Warm-up sets weren't added")
   }
 
-  // Checking a set: empty fields take last session's numbers (the ghosts).
-  function toggleComplete(entry, set, index) {
-    if (set.completed) return updateSet(entry.we.id, set.id, { completed: false, completed_at: null }, true)
+  // The fields that mark a set done: empty boxes take last session's numbers
+  // (the grey ghosts). Returns null if it still has nothing to record.
+  function doneFields(entry, set, index, stamp) {
     const type = exercises[entry.we.exercise_id]?.exercise_type ?? 'weight_reps'
     const ghost = ghostFor(entry, index)
-    // When editing a past workout, date the set to that workout, not today.
-    const fields = { completed: true, completed_at: editing ? times.ended_at : new Date().toISOString() }
+    const fields = { completed: true, completed_at: stamp }
     if (ghost) {
       if (set.weight == null && ghost.weight != null)
         fields.weight = roundWeight(convertWeight(Number(ghost.weight), ghost.weight_unit, set.weight_unit))
@@ -318,16 +271,27 @@ function ActiveWorkout({ workout, editing, onFinished }) {
       if (set.distance == null && ghost.distance != null) fields.distance = Number(ghost.distance)
     }
     const missing = REQUIRED[type].filter((f) => (fields[f] ?? set[f]) == null)
-    if (missing.length) {
-      toast({ title: 'Fill in the set first', body: `Needs ${missing.map((f) => f.replace('_seconds', '')).join(' and ')}.` })
+    return missing.length ? null : fields
+  }
+
+  // When editing a past workout, sets are dated to that workout, not today.
+  const stampNow = () => (editing ? times.ended_at : new Date().toISOString())
+
+  function toggleComplete(entry, set, index) {
+    if (set.completed) return updateSet(entry.we.id, set.id, { completed: false, completed_at: null })
+    const fields = doneFields(entry, set, index, stampNow())
+    if (!fields) {
+      const type = exercises[entry.we.exercise_id]?.exercise_type ?? 'weight_reps'
+      const need = REQUIRED[type].map((f) => f.replace('_seconds', '')).join(' and ')
+      toast({ title: 'Fill in the set first', body: `Needs ${need}.` })
       return
     }
-    updateSet(entry.we.id, set.id, fields, true)
+    updateSet(entry.we.id, set.id, fields)
   }
 
   function cycleSetType(entry, set) {
     const next = SET_TYPE_CYCLE[(SET_TYPE_CYCLE.indexOf(set.set_type) + 1) % SET_TYPE_CYCLE.length]
-    updateSet(entry.we.id, set.id, { set_type: next }, true)
+    updateSet(entry.we.id, set.id, { set_type: next })
   }
 
   // ---------- exercises ----------
@@ -346,11 +310,6 @@ function ActiveWorkout({ workout, editing, onFinished }) {
       newSet(we, i, previous[i]?.set_type ?? 'normal'),
     )
     setEntries((prev) => [...prev, { we, sets, previous }])
-    if (!(await write(db('workout_exercises').insert(we), "Exercise wasn't added"))) {
-      setEntries((prev) => prev.filter((e) => e.we.id !== we.id))
-      return
-    }
-    await write(db('workout_sets').insert(sets), "Sets weren't added")
   }
 
   // Drag-and-drop: move an exercise, then renumber everyone's position.
@@ -359,14 +318,7 @@ function ActiveWorkout({ workout, editing, onFinished }) {
     const to = entries.findIndex((e) => e.we.id === overId)
     if (from < 0 || to < 0 || from === to) return
     const moved = arrayMove(entries, from, to)
-    const changed = moved.filter((e, i) => e.we.position !== i)
     setEntries(moved.map((e, i) => ({ ...e, we: { ...e.we, position: i } })))
-    changed.forEach((e) =>
-      write(
-        db('workout_exercises').update({ position: moved.indexOf(e) }).eq('id', e.we.id),
-        "New order wasn't saved",
-      ),
-    )
   }
 
   const sensors = useSensors(
@@ -374,70 +326,62 @@ function ActiveWorkout({ workout, editing, onFinished }) {
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   )
 
-  async function removeExercise(entry) {
+  function removeExercise(entry) {
     const ex = exercises[entry.we.exercise_id]
     if (!window.confirm(`Remove ${ex?.name ?? 'this exercise'} and its sets from this workout?`)) return
-    entry.sets.forEach((s) => {
-      clearTimeout(timers.current[s.id])
-      delete pending.current[s.id]
-    })
     setEntries((prev) => prev.filter((e) => e.we.id !== entry.we.id))
-    await write(db('workout_exercises').delete().eq('id', entry.we.id), "Exercise wasn't removed")
   }
 
   function saveExerciseNotes(entry, value) {
     if (value === entry.we.notes) return
     setEntries((prev) => prev.map((e) => (e.we.id === entry.we.id ? { ...e, we: { ...e.we, notes: value } } : e)))
-    write(db('workout_exercises').update({ notes: value }).eq('id', entry.we.id), "Note wasn't saved")
   }
 
   // ---------- finish / discard ----------
+  // No questions: every set you checked off or typed numbers into is kept
+  // (unchecked ones count as done); untouched empty sets are dropped.
   async function finish() {
+    const stamp = stampNow()
+    const typed = (s) => s.weight != null || s.reps != null || s.duration_seconds != null || s.distance != null
+    const kept = entries
+      .map((e) => ({
+        ...e,
+        sets: e.sets
+          .map((s, i) => {
+            if (s.completed) return s
+            if (!typed(s)) return null
+            const fields = doneFields(e, s, i, stamp)
+            return fields ? { ...s, ...fields } : null
+          })
+          .filter(Boolean),
+      }))
+      .filter((e) => e.sets.length)
+    if (!kept.length) {
+      if (window.confirm('Nothing has been logged in this workout. Discard it?')) discard(true)
+      return
+    }
+    closed.current = true
     setFinishing(true)
-    if (!(await flushAll())) {
-      setFinishing(false)
-      return
-    }
-    const all = entries.flatMap((e) => e.sets)
-    const done = all.filter((s) => s.completed)
-    const undone = all.filter((s) => !s.completed)
-    if (done.length === 0) {
-      setFinishing(false)
-      if (window.confirm('No sets are checked off yet. Discard this workout instead?')) discard(true)
-      return
-    }
-    if (
-      undone.length &&
-      !window.confirm(
-        `${undone.length} unchecked set${undone.length === 1 ? '' : 's'} will be removed. ${editing ? 'Save changes' : 'Finish workout'}?`,
-      )
-    ) {
-      setFinishing(false)
-      return
-    }
-    if (undone.length)
-      await write(db('workout_sets').delete().in('id', undone.map((s) => s.id)), 'Cleanup failed')
-    const emptyExercises = entries.filter((e) => !e.sets.some((s) => s.completed)).map((e) => e.we.id)
-    if (emptyExercises.length) await write(db('workout_exercises').delete().in('id', emptyExercises), 'Cleanup failed')
-    const fields = editing ? { name, notes } : { ended_at: new Date().toISOString(), name, notes }
-    write(db('workouts').update(fields).eq('id', workout.id), "Workout wasn't saved")
-    // Mark it finished in this phone's copy too, so it doesn't reopen as in progress.
-    if (fields.ended_at) setTimes((t) => ({ ...t, ended_at: fields.ended_at }))
+    const snap = snapshot()
+    saveWorkoutLocal(workout.id, {
+      ...snap,
+      entries: kept,
+      workout: { ...snap.workout, ended_at: editing ? times.ended_at : stamp },
+    })
     if (!editing) bigCelebration()
-    // Try to upload now; if there's no signal it stays queued on the phone.
-    const remaining = await drain()
+    // Usually uploads in under a second. If the signal's bad, it keeps
+    // trying in the background — the workout is already safe on the phone.
+    const synced = await syncSoon(4000)
     setFinishing(false)
-    if (remaining > 0) return onFinished({ offline: true })
+    if (!synced) return onFinished({ offline: true })
     if (!editing) sessionStorage.setItem('liahona.justFinished', workout.id)
-    clearWorkoutCache(workout.id)
     onFinished()
   }
 
-  async function discard(skipConfirm) {
+  function discard(skipConfirm) {
     if (!skipConfirm && !window.confirm('Discard this workout? Everything logged in it will be deleted.')) return
-    pending.current = {}
-    write(db('workouts').delete().eq('id', workout.id), "Workout wasn't discarded")
-    clearWorkoutCache(workout.id)
+    closed.current = true
+    discardWorkout(workout.id)
     navigate('/workout')
   }
 
@@ -454,10 +398,6 @@ function ActiveWorkout({ workout, editing, onFinished }) {
             value={name}
             placeholder="Workout name"
             onChange={(e) => setName(e.target.value)}
-            onBlur={() =>
-              name !== workout.name &&
-              write(db('workouts').update({ name }).eq('id', workout.id), "Name wasn't saved")
-            }
             aria-label="Workout name"
           />
           <span className="aw-meta">
@@ -470,36 +410,11 @@ function ActiveWorkout({ workout, editing, onFinished }) {
         </button>
       </header>
 
-      {editing && (
-        <WhenEditor
-          times={times}
-          onSave={async (next) => {
-            setTimes(next)
-            await write(db('workouts').update(next).eq('id', workout.id), "Times weren't saved")
-          }}
-        />
-      )}
+      {editing && <WhenEditor times={times} onSave={setTimes} />}
 
-      {(error || box.error) && (
-        <div className="aw-error">
-          <span>{error || box.error}</span>
-          <button
-            className="btn small ghost"
-            onClick={() => {
-              setError('')
-              clearOutboxError()
-              drain()
-            }}
-          >
-            OK
-          </button>
-        </div>
-      )}
-      {box.offline && box.pending > 0 && (
-        <div className="aw-offline">
-          📶 No signal — {box.pending} change{box.pending === 1 ? '' : 's'} saved on this phone. They'll upload
-          automatically.
-        </div>
+      {error && <p className="error">{error}</p>}
+      {sync.pending > 0 && sync.error && (
+        <div className="aw-offline">📶 Saved on this phone. It'll upload by itself when the connection is back.</div>
       )}
 
       {showNotes ? (
@@ -509,10 +424,6 @@ function ActiveWorkout({ workout, editing, onFinished }) {
           placeholder="Workout notes"
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
-          onBlur={() =>
-            notes !== workout.notes &&
-            write(db('workouts').update({ notes }).eq('id', workout.id), "Notes weren't saved")
-          }
         />
       ) : (
         <button className="link-btn" onClick={() => setShowNotes(true)}>
@@ -969,34 +880,3 @@ function Suggestion({ entry, target, equipment }) {
   )
 }
 
-// Records a change for the save queue using query-style calls, e.g.
-// db('workout_sets').update({ reps: 8 }).eq('id', setId)
-function db(table) {
-  const op = { table, match: {} }
-  const chain = {
-    op,
-    insert(values) {
-      op.action = 'insert'
-      op.values = values
-      return chain
-    },
-    update(values) {
-      op.action = 'update'
-      op.values = values
-      return chain
-    },
-    delete() {
-      op.action = 'delete'
-      return chain
-    },
-    eq(col, value) {
-      op.match[col] = value
-      return chain
-    },
-    in(col, values) {
-      op.match[col] = values
-      return chain
-    },
-  }
-  return chain
-}

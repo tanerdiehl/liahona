@@ -12,7 +12,7 @@ export function readWorkoutCache(id) {
 
 export function writeWorkoutCache(id, data) {
   try {
-    localStorage.setItem(key(id), JSON.stringify({ ...data, savedAt: Date.now() }))
+    localStorage.setItem(key(id), JSON.stringify({ ...data, savedAt: `${Date.now()}-${Math.random()}` }))
   } catch {
     /* storage full — the online copy is still the source of truth */
   }

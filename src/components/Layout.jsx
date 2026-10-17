@@ -3,6 +3,7 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useSaveStatus } from '../lib/saveStatus'
 import { useOutbox } from '../lib/outbox'
+import { useWorkoutSync } from '../workout/workoutSync'
 import { downloadBackup } from '../lib/backup'
 import Toaster from './Toaster'
 import ActiveWorkoutBar from '../workout/ActiveWorkoutBar'
@@ -88,6 +89,13 @@ export default function Layout({ user }) {
 function SaveIndicator() {
   const { pending, error } = useSaveStatus()
   const box = useOutbox()
+  const ws = useWorkoutSync()
+  if (ws.pending > 0)
+    return (
+      <span className={`save-status ${ws.error ? 'bad' : ''}`} title="Workout saved on this phone, waiting to upload">
+        {ws.error ? 'Workout on phone · uploading when online' : 'Syncing…'}
+      </span>
+    )
   if (box.pending > 0)
     return (
       <span className={`save-status ${box.offline ? 'bad' : ''}`} title="Changes saved on this device, waiting to upload">

@@ -2,6 +2,8 @@ import { supabase } from '../lib/supabase'
 import { fetchAll } from '../lib/habits'
 import { SEED_EXERCISES } from './seedExercises'
 import { getSettings } from '../lib/settings'
+import { isDirty, localActiveWorkout } from './workoutSync'
+import { readWorkoutCache } from './workoutCache'
 
 export const MUSCLE_GROUPS = [
   'Chest',
@@ -43,9 +45,20 @@ export const SET_TYPE_CYCLE = ['normal', 'warmup', 'drop', 'failure']
 
 export const loadSettings = getSettings
 
+// Bump when exercises are added to the starter library, so existing
+// accounts get the new ones too (names you already have are left alone).
+const SEED_VERSION = '2'
+const seededHere = () => {
+  try {
+    return localStorage.getItem('liahona.seedVersion') === SEED_VERSION
+  } catch {
+    return false
+  }
+}
+
 let seeding = null
 export function ensureExercisesSeeded(settings) {
-  if (settings.exercises_seeded) return Promise.resolve()
+  if (settings.exercises_seeded && seededHere()) return Promise.resolve()
   seeding ??= (async () => {
     const rows = SEED_EXERCISES.map(([name, muscle_group, equipment, exercise_type]) => ({
       name,
@@ -57,6 +70,11 @@ export function ensureExercisesSeeded(settings) {
     const { error } = await supabase.from('exercises').upsert(rows, { onConflict: 'user_id,name', ignoreDuplicates: true })
     if (error) throw error
     await supabase.from('user_settings').update({ exercises_seeded: true }).eq('user_id', settings.user_id)
+    try {
+      localStorage.setItem('liahona.seedVersion', SEED_VERSION)
+    } catch {
+      /* ignore */
+    }
   })().catch((e) => {
     seeding = null // allow a retry next time
     throw e
@@ -68,15 +86,19 @@ export async function fetchExercises() {
   return fetchAll(() => supabase.from('exercises').select('*').eq('archived', false).order('name'))
 }
 
+// The open workout: this phone's copy first (works with no signal), then the
+// server's — unless this phone already finished it and is still uploading.
 export async function fetchActiveWorkout() {
+  const local = localActiveWorkout()
+  if (local) return local
   const { data, error } = await supabase
     .from('workouts')
     .select('id,name,started_at')
     .is('ended_at', null)
     .order('started_at', { ascending: false })
-    .limit(1)
+    .limit(5)
   if (error) throw error
-  return data[0] ?? null
+  return data.find((w) => !(isDirty(w.id) && readWorkoutCache(w.id)?.workout?.ended_at)) ?? null
 }
 
 // Sets from the most recent *other* workout that included this exercise —

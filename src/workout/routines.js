@@ -4,6 +4,7 @@ import { fetchAll } from '../lib/habits'
 import { track } from '../lib/saveStatus'
 import { todayISO } from '../lib/dates'
 import { defaultWorkoutName, fetchActiveWorkout, fetchPreviousSets, loadSettings, uuid } from './lib'
+import { localActiveWorkout, saveWorkoutLocal } from './workoutSync'
 
 export async function fetchRoutineData() {
   const [folders, routines] = await Promise.all([
@@ -24,49 +25,70 @@ export async function fetchRoutineData() {
 // session's numbers show as grey ghosts, as usual). items:
 // [{ exercise_id, sets: n, setTypes?: [...], notes? }]
 // If a workout is already in progress, returns that one instead.
-export async function startWorkout({ name, routineId = null, items = [] }) {
-  const active = await fetchActiveWorkout()
-  if (active) return { id: active.id, existing: true }
+// It's created on this phone first and uploads in the background, so it
+// starts instantly even with no signal.
+export async function startWorkout({ name, routineId = null, items = [], past = null }) {
+  if (!past) {
+    const active = await fetchActiveWorkout().catch(() => localActiveWorkout())
+    if (active) return { id: active.id, existing: true }
+  }
 
-  const settings = await loadSettings()
-  const unit = settings.weight_unit
+  const settings = await loadSettings().catch(() => ({ weight_unit: 'lbs' }))
+  const unit = settings.weight_unit ?? 'lbs'
   const workoutId = uuid()
-  const { error } = await track(
-    supabase.from('workouts').insert({
-      id: workoutId,
-      name: name || defaultWorkoutName(),
-      workout_date: todayISO(),
-      routine_id: routineId,
-    }),
-  )
-  if (error) throw new Error(`Couldn't start — ${error.message}`)
-  if (!items.length) return { id: workoutId }
+  const workout = {
+    id: workoutId,
+    name: name || defaultWorkoutName(past ? new Date(past.started_at) : new Date()),
+    notes: '',
+    workout_date: past?.workout_date ?? todayISO(),
+    started_at: past?.started_at ?? new Date().toISOString(),
+    ended_at: past?.ended_at ?? null,
+    routine_id: routineId,
+  }
 
-  const previous = await Promise.all(items.map((it) => fetchPreviousSets(it.exercise_id, workoutId).catch(() => [])))
-  const weRows = []
-  const setRows = []
-  items.forEach((it, position) => {
-    const weId = uuid()
-    weRows.push({ id: weId, workout_id: workoutId, exercise_id: it.exercise_id, position, notes: it.notes ?? '' })
+  const ids = items.map((it) => it.exercise_id)
+  const [previous, exercises] = await Promise.all([
+    Promise.all(items.map((it) => fetchPreviousSets(it.exercise_id, workoutId, past?.started_at).catch(() => []))),
+    ids.length
+      ? supabase
+          .from('exercises')
+          .select('*')
+          .in('id', ids)
+          .then(({ data }) => Object.fromEntries((data ?? []).map((e) => [e.id, e])))
+          .catch(() => ({}))
+      : {},
+  ])
+  const entries = items.map((it, position) => {
+    const we = { id: uuid(), workout_id: workoutId, exercise_id: it.exercise_id, position, notes: it.notes ?? '' }
     const count = Math.max(1, it.sets || previous[position].length || 1)
-    for (let i = 0; i < count; i++)
-      setRows.push({
-        id: uuid(),
-        workout_id: workoutId,
-        workout_exercise_id: weId,
-        exercise_id: it.exercise_id,
-        set_order: i,
-        set_type: it.setTypes?.[i] ?? previous[position][i]?.set_type ?? 'normal',
-        weight_unit: unit,
-        distance_unit: unit === 'kg' ? 'km' : 'mi',
-        completed: false,
-      })
+    const sets = Array.from({ length: count }, (_, i) => ({
+      id: uuid(),
+      workout_id: workoutId,
+      workout_exercise_id: we.id,
+      exercise_id: it.exercise_id,
+      set_order: i,
+      set_type: it.setTypes?.[i] ?? previous[position][i]?.set_type ?? 'normal',
+      weight: null,
+      weight_unit: unit,
+      reps: null,
+      duration_seconds: null,
+      distance: null,
+      distance_unit: unit === 'kg' ? 'km' : 'mi',
+      completed: false,
+    }))
+    return { we, sets, previous: previous[position] }
   })
-  const r1 = await track(supabase.from('workout_exercises').insert(weRows))
-  if (r1.error) throw new Error(`Couldn't add exercises — ${r1.error.message}`)
-  const r2 = await track(supabase.from('workout_sets').insert(setRows))
-  if (r2.error) throw new Error(`Couldn't add sets — ${r2.error.message}`)
+  saveWorkoutLocal(workoutId, { workout, entries, exercises, targets: {}, unit }, { now: true })
   return { id: workoutId }
+}
+
+// A workout you did earlier but didn't log: opens in the editor with the
+// date and times you picked.
+export function logPastWorkout({ date, start, end }) {
+  const s = new Date(`${date}T${start}`)
+  const e = new Date(`${date}T${end}`)
+  if (e <= s) e.setDate(e.getDate() + 1)
+  return startWorkout({ past: { workout_date: date, started_at: s.toISOString(), ended_at: e.toISOString() } })
 }
 
 export function startFromRoutine(routine) {

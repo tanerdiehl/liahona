@@ -3059,3 +3059,17 @@ body.resting .content {
   color: var(--success);
   font-weight: 700;
 }
+
+/* Log a past workout */
+.past-link {
+  display: block;
+  margin: 0.25rem auto 0.75rem;
+}
+.past-workout {
+  display: grid;
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+}
+.past-workout .when-editor {
+  margin: 0;
+}
