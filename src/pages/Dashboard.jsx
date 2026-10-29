@@ -14,6 +14,7 @@ import { dailyInspiration, TOPIC_LABELS } from '../lib/inspiration'
 import { useProteinTarget } from '../lib/proteinTarget'
 import WorkoutPanel from '../workout/WorkoutPanel'
 import BackupReminder from '../components/BackupReminder'
+import { TodayPlanPanel } from '../plan/DayPlanner'
 
 const LIST_KEY = 'liahona.todo.list'
 function readList() {
@@ -46,6 +47,7 @@ export default function Dashboard({ user }) {
       <BackupReminder />
       <WeeklyReviewNudge />
       <div className="dash-grid">
+        <TodayPlanPanel />
         <TodayHabits user={user} />
         <WorkoutPanel />
         <ProteinToday />

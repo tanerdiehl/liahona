@@ -24,6 +24,7 @@ import BodyLog from './body/BodyLog'
 import ProgressPhotos from './body/ProgressPhotos'
 import DataPage from './pages/DataPage'
 import WeeklyReview from './pages/WeeklyReview'
+import DayPlanner from './plan/DayPlanner'
 
 export default function App() {
   // undefined = still checking stored session, null = signed out
@@ -51,6 +52,7 @@ export default function App() {
           <Route path="habits" element={<Habits user={user} />} />
           <Route path="habits/manage" element={<ManageHabits />} />
           <Route path="protein" element={<Protein />} />
+          <Route path="plan" element={<DayPlanner />} />
           <Route path="todo" element={<Tasks />} />
           <Route path="goals" element={<Goals />} />
           <Route path="goals/:id" element={<GoalDetail />} />

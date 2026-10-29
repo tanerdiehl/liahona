@@ -3073,3 +3073,298 @@ body.resting .content {
 .past-workout .when-editor {
   margin: 0;
 }
+
+/* ---------- day planner ---------- */
+.planner .page-head .segmented button,
+.page-head .segmented button {
+  padding: 5px 12px;
+}
+.week-strip {
+  padding: 8px 10px 10px;
+  margin-bottom: 12px;
+}
+.week-strip-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: center;
+}
+.week-strip-head .link-btn {
+  margin-left: auto;
+}
+.week-days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  margin-top: 6px;
+}
+.week-day {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: 6px 0;
+  border: none;
+  background: none;
+  border-radius: 10px;
+  color: var(--text);
+  cursor: pointer;
+}
+.week-day .small {
+  color: var(--muted);
+}
+.week-day.is-today strong {
+  color: var(--accent);
+}
+.week-day.on {
+  background: var(--accent);
+}
+.week-day.on,
+.week-day.on .small,
+.week-day.on strong {
+  color: #fff;
+}
+.week-day .dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: transparent;
+}
+.week-day .dot.on {
+  background: var(--accent);
+}
+.week-day.on .dot.on {
+  background: #fff;
+}
+.planner-date {
+  margin: 4px 0 10px;
+  font-size: 1.15rem;
+}
+.plan-tomorrow {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  text-align: left;
+  margin-bottom: 12px;
+  border: 1px solid var(--accent);
+  cursor: pointer;
+  color: var(--text);
+}
+.day-notes {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+.day-notes textarea {
+  width: 100%;
+  resize: vertical;
+}
+.timeline {
+  display: grid;
+  grid-template-columns: 52px 1fr;
+  padding: 8px 8px 8px 0;
+  margin-bottom: 12px;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.timeline-hour {
+  position: relative;
+}
+.timeline-hour span {
+  position: absolute;
+  top: -7px;
+  right: 8px;
+  font-size: 0.72rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.timeline-grid {
+  position: relative;
+  cursor: copy;
+}
+.timeline-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 1px solid var(--border);
+  pointer-events: none;
+}
+.now-line {
+  position: absolute;
+  left: -4px;
+  right: 0;
+  border-top: 2px solid var(--danger);
+  z-index: 3;
+  pointer-events: none;
+}
+.now-line::before {
+  content: '';
+  position: absolute;
+  left: -3px;
+  top: -5px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--danger);
+}
+.plan-block {
+  position: absolute;
+  z-index: 2;
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  padding: 4px 6px;
+  border-radius: 8px;
+  border-left: 4px solid var(--cat);
+  background: color-mix(in srgb, var(--cat) 16%, var(--surface));
+  overflow: hidden;
+  cursor: pointer;
+}
+.plan-block-text {
+  display: grid;
+  min-width: 0;
+  line-height: 1.25;
+}
+.plan-block-text strong,
+.plan-block-text span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.plan-block-text .small {
+  color: var(--muted);
+}
+.plan-block.short {
+  align-items: center;
+}
+.plan-block.short .plan-block-text {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+}
+.plan-check {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid var(--cat);
+  background: var(--surface);
+  color: #fff;
+  font-size: 0.75rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+}
+.plan-block.s-done {
+  background: color-mix(in srgb, var(--cat) 8%, var(--surface));
+}
+.plan-block.s-done .plan-check {
+  background: var(--success);
+  border-color: var(--success);
+}
+.plan-block.s-done strong {
+  color: var(--muted);
+}
+.plan-block.s-missed .plan-check {
+  background: var(--danger);
+  border-color: var(--danger);
+}
+.plan-block.s-missed strong {
+  text-decoration: line-through;
+  color: var(--muted);
+}
+.plan-todos h3,
+.plan-review h3 {
+  margin: 0 0 8px;
+  font-size: 1rem;
+}
+.plan-todos ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.plan-todos li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.plan-todos,
+.plan-review {
+  margin-bottom: 12px;
+}
+.plan-form {
+  display: grid;
+  gap: 10px;
+}
+.plan-form input,
+.plan-form textarea {
+  width: 100%;
+}
+.plan-title {
+  font-size: 1.05rem;
+}
+.plan-sheet .when-editor {
+  margin: 0;
+}
+.cat-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.cat-chip {
+  border: 1px solid color-mix(in srgb, var(--cat) 50%, transparent);
+  background: none;
+  color: var(--text);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.cat-chip.on {
+  background: var(--cat);
+  border-color: var(--cat);
+  color: #fff;
+}
+.plan-status {
+  display: flex;
+  gap: 8px;
+}
+.plan-form .form-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.danger-link {
+  color: var(--danger);
+}
+.plan-mini {
+  list-style: none;
+  margin: 0 0 6px;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.plan-mini li {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding-left: 8px;
+  border-left: 3px solid var(--cat);
+}
+.plan-mini li.s-done .grow {
+  text-decoration: line-through;
+  color: var(--muted);
+}
+.plan-mini-time {
+  font-size: 0.8rem;
+  color: var(--muted);
+  min-width: 56px;
+}
+.now-pill {
+  font-size: 0.7rem;
+  background: var(--danger);
+  color: #fff;
+  border-radius: 999px;
+  padding: 1px 7px;
+}

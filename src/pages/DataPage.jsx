@@ -62,6 +62,13 @@ export default function DataPage() {
         {item('tasks', 'To-do (CSV)', 'Open and completed tasks.', () =>
           exportSimpleCSV('tasks', ['title', 'list', 'created_at', 'completed_at'], 'created_at'),
         )}
+        {item('plan', 'Day planner (CSV)', 'Every planned block and whether it happened.', () =>
+          exportSimpleCSV(
+            'plan_events',
+            ['date', 'start_time', 'end_time', 'title', 'category', 'location', 'status', 'notes', 'backup'],
+            'date',
+          ),
+        )}
         {item('journal', 'Journal (CSV)', 'All entries.', () =>
           exportSimpleCSV('journal_entries', ['entry_date', 'body', 'created_at', 'updated_at'], 'entry_date'),
         )}

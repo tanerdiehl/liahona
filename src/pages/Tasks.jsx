@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { useTasks } from '../lib/useTasks'
 import { addDays, formatShort, startOfWeek, todayISO, toISO } from '../lib/dates'
 import TaskList from '../components/TaskList'
+import { PlanTabs } from '../plan/DayPlanner'
 
 const SHOW_DONE_KEY = 'liahona.todo.showDone'
 const LIST_KEY = 'liahona.todo.list'
@@ -64,15 +65,8 @@ export default function Tasks() {
   return (
     <section className="narrow">
       <div className="page-head">
-        <h1>To-do</h1>
-        <div className="segmented">
-          <button className={list === 'todo' ? 'on' : ''} onClick={() => chooseList('todo')}>
-            To-do
-          </button>
-          <button className={list === 'week' ? 'on' : ''} onClick={() => chooseList('week')}>
-            This week
-          </button>
-        </div>
+        <h1>Plan</h1>
+        <PlanTabs active={list} onList={chooseList} />
       </div>
       <div className="daily-thought todo-quote">
         <blockquote className="quote">

@@ -21,6 +21,8 @@ const TABLES = [
   'routine_exercises',
   'body_logs',
   'progress_photos',
+  'plan_events',
+  'day_plans',
 ]
 
 // Downloads every row you own as one JSON file — a copy of your data that
