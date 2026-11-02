@@ -3453,3 +3453,28 @@ body.resting .content {
 .plan-form .form-actions {
   flex-wrap: wrap;
 }
+
+/* workout data export */
+.preset-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.preset-chips .cat-chip {
+  --cat: var(--accent);
+}
+.date-range {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.date-range label {
+  display: grid;
+  gap: 4px;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.report-actions {
+  flex-wrap: wrap;
+  align-items: center;
+}

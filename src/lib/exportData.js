@@ -37,26 +37,113 @@ const hevyTime = (iso) => {
 const LBS = 2.20462
 const SET_TYPE_HEVY = { normal: 'normal', warmup: 'warmup', drop: 'dropset', failure: 'failure' }
 
-// Every completed set, one row each. The first columns match Hevy's export
-// format; the rest keep exact times, units and exercise details.
-export async function exportWorkoutsCSV() {
+// Finished workouts with their completed sets, in order. from / to are
+// 'YYYY-MM-DD' (inclusive); leave either out for no limit.
+export async function fetchWorkoutData({ from, to } = {}) {
   const [workouts, wes, sets, exercises] = await Promise.all([
-    fetchAll(() => supabase.from('workouts').select('*').not('ended_at', 'is', null).order('started_at')),
+    fetchAll(() => {
+      let q = supabase.from('workouts').select('*').not('ended_at', 'is', null)
+      if (from) q = q.gte('workout_date', from)
+      if (to) q = q.lte('workout_date', to)
+      return q.order('started_at').order('id')
+    }),
     fetchAll(() => supabase.from('workout_exercises').select('*').order('id')),
     fetchAll(() => supabase.from('workout_sets').select('*').eq('completed', true).order('set_order').order('id')),
     fetchAll(() => supabase.from('exercises').select('*').order('id')),
   ])
   const exById = new Map(exercises.map((e) => [e.id, e]))
   const weById = new Map(wes.map((w) => [w.id, w]))
+  const setsBy = new Map()
+  for (const st of sets) {
+    if (!setsBy.has(st.workout_id)) setsBy.set(st.workout_id, [])
+    setsBy.get(st.workout_id).push(st)
+  }
+  return workouts.map((w) => {
+    const mine = (setsBy.get(w.id) ?? []).sort(
+      (a, b) =>
+        (weById.get(a.workout_exercise_id)?.position ?? 0) - (weById.get(b.workout_exercise_id)?.position ?? 0) ||
+        a.set_order - b.set_order,
+    )
+    // Group into exercises, in the order they were done.
+    const exercisesDone = []
+    for (const st of mine) {
+      let entry = exercisesDone.find((x) => x.weId === st.workout_exercise_id)
+      if (!entry) {
+        entry = { weId: st.workout_exercise_id, ex: exById.get(st.exercise_id), notes: weById.get(st.workout_exercise_id)?.notes ?? '', sets: [] }
+        exercisesDone.push(entry)
+      }
+      entry.sets.push(st)
+    }
+    return { workout: w, exercises: exercisesDone }
+  })
+}
+
+const fmtSecs = (secs) => {
+  if (secs == null) return ''
+  const h = Math.floor(secs / 3600)
+  const m = Math.floor((secs % 3600) / 60)
+  const sec = secs % 60
+  return h ? `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}` : `${m}:${String(sec).padStart(2, '0')}`
+}
+const num = (v) => (v == null ? '' : String(Number(v)))
+const TYPE_MARK = { warmup: 'W ', drop: 'D ', failure: 'F ' }
+
+// One set as text, e.g. "135×8", "W 45×12", "+25×6", "12", "1:30", "2 mi in 18:00".
+function setText(st, type) {
+  const unit = st.weight_unit === 'kg' ? 'kg' : ''
+  const w = st.weight != null ? num(st.weight) + unit : null
+  let out
+  switch (type) {
+    case 'bodyweight_reps':
+      out = num(st.reps)
+      break
+    case 'weighted_bodyweight':
+      out = `+${w ?? 0}×${num(st.reps)}`
+      break
+    case 'assisted_bodyweight':
+      out = `−${w ?? 0}×${num(st.reps)}`
+      break
+    case 'duration':
+      out = fmtSecs(st.duration_seconds)
+      break
+    case 'distance_duration':
+      out = `${num(st.distance)} ${st.distance_unit}${st.duration_seconds ? ` in ${fmtSecs(st.duration_seconds)}` : ''}`
+      break
+    default:
+      out = w != null ? `${w}×${num(st.reps)}` : num(st.reps)
+  }
+  return (TYPE_MARK[st.set_type] ?? '') + out
+}
+
+// Plain-text log of workouts — easy to read, paste into notes or a spreadsheet.
+export function workoutDataText(data, { from, to } = {}) {
+  const lines = [
+    `Workouts${from || to ? ` ${from ?? 'start'} to ${to ?? todayISO()}` : ''} — ${data.length} workout${data.length === 1 ? '' : 's'}`,
+    'Weights in lbs unless marked kg. Sets are weight×reps. W = warm-up, D = drop set, F = failure.',
+  ]
+  for (const { workout: w, exercises } of data) {
+    const mins = Math.round((new Date(w.ended_at) - new Date(w.started_at)) / 60000)
+    lines.push('', `${w.workout_date} · ${w.name || 'Workout'} · ${mins} min`)
+    if (w.notes) lines.push(`Notes: ${w.notes}`)
+    for (const e of exercises) {
+      const type = e.ex?.exercise_type ?? 'weight_reps'
+      lines.push(`${e.ex?.name ?? 'Exercise'}: ${e.sets.map((st) => setText(st, type)).join(', ')}${e.notes ? `  (${e.notes})` : ''}`)
+    }
+  }
+  return lines.join('\n')
+}
+
+// Every completed set, one row each. The first columns match Hevy's export
+// format; the rest keep exact times, units and exercise details.
+export async function exportWorkoutsCSV(range = {}, data = null) {
+  data ??= await fetchWorkoutData(range)
   const rows = []
-  for (const w of workouts) {
-    const mine = sets
-      .filter((s) => s.workout_id === w.id)
-      .sort((a, b) => (weById.get(a.workout_exercise_id)?.position ?? 0) - (weById.get(b.workout_exercise_id)?.position ?? 0))
+  for (const { workout: w, exercises } of data) {
+    const mine = exercises.flatMap((e) => e.sets.map((st) => ({ ...st, _ex: e.ex, _notes: e.notes })))
     const indexIn = new Map()
     for (const s of mine) {
-      const ex = exById.get(s.exercise_id)
-      const we = weById.get(s.workout_exercise_id)
+      const ex = s._ex
+      const we = { notes: s._notes }
       const i = indexIn.get(s.workout_exercise_id) ?? 0
       indexIn.set(s.workout_exercise_id, i + 1)
       const weight = s.weight == null ? null : Number(s.weight)
@@ -98,7 +185,8 @@ export async function exportWorkoutsCSV() {
     'ended_at', 'weight', 'weight_unit', 'distance', 'distance_unit', 'muscle_group', 'equipment', 'exercise_type',
     'set_notes', 'source',
   ]
-  download(`liahona-workouts-${stamp()}.csv`, toCSV(rows, cols))
+  const span = range.from || range.to ? `-${range.from ?? 'start'}-to-${range.to ?? stamp()}` : `-${stamp()}`
+  download(`liahona-workouts${span}.csv`, toCSV(rows, cols))
   return rows.length
 }
 

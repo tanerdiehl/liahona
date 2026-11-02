@@ -19,7 +19,7 @@ import {
 } from './stats'
 import { BarChart, LineChart, TrainingCalendar } from './WorkoutCharts'
 import MuscleMap from './MuscleMap'
-import ReportExport from '../components/ReportExport'
+import WorkoutDataExport from '../components/WorkoutDataExport'
 import { bucketed, fetchBodyLogs, round1, series } from '../body/body'
 
 const COLOR = '#1D9E75' // physical-strength teal
@@ -181,8 +181,8 @@ export default function WorkoutAnalytics() {
 
       <RecentPRs sessions={sessions} unit={unit} />
 
-      <h2 className="section-title">Analyze with AI</h2>
-      <ReportExport />
+      <h2 className="section-title">Export workout data</h2>
+      <WorkoutDataExport />
     </section>
   )
 }

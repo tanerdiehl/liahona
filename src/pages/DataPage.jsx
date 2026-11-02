@@ -6,7 +6,7 @@ import { track } from '../lib/saveStatus'
 import { downloadBackup } from '../lib/backup'
 import { BODY_COLUMNS, exportBodyCSV, exportHabitsCSV, exportSimpleCSV, exportWorkoutsCSV } from '../lib/exportData'
 import { parseCSV } from '../workout/hevyImport'
-import ReportExport from '../components/ReportExport'
+import WorkoutDataExport from '../components/WorkoutDataExport'
 
 // /data — your data, yours to take anywhere.
 export default function DataPage() {
@@ -47,7 +47,7 @@ export default function DataPage() {
         Everything you log is stored as raw records and never summarised away. Download it any time — CSV files open in
         Excel, Numbers or Google Sheets.
       </p>
-      <ReportExport />
+      <WorkoutDataExport />
       {msg && <p className="finish-banner">{msg}</p>}
       {error && <p className="error">{error}</p>}
 
