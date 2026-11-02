@@ -437,7 +437,8 @@ function describeTop(h, type, unit) {
   const t = h.topSet
   if (type === 'weight_reps')
     return `${roundWeight(t.w)} ${unit} × ${t.reps}${t.e1rm ? ` · 1RM ≈ ${roundWeight(t.e1rm)}` : ''}`
-  if (type === 'weighted_bodyweight') return `+${roundWeight(h.maxWeight)} ${unit} · ${h.maxReps} reps best`
+  if (type === 'weighted_bodyweight')
+    return h.maxWeight ? `+${roundWeight(h.maxWeight)} ${unit} · ${h.maxReps} reps best` : `${h.maxReps} reps best`
   if (type === 'assisted_bodyweight') return `${h.maxReps} reps best`
   if (type === 'duration' || type === 'distance_duration') return `${formatDuration(h.maxSeconds)} best`
   return `${h.maxReps} reps best`

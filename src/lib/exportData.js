@@ -98,7 +98,7 @@ function setText(st, type) {
       out = num(st.reps)
       break
     case 'weighted_bodyweight':
-      out = `+${w ?? 0}×${num(st.reps)}`
+      out = Number(st.weight) ? `+${w}×${num(st.reps)}` : num(st.reps)
       break
     case 'assisted_bodyweight':
       out = `−${w ?? 0}×${num(st.reps)}`

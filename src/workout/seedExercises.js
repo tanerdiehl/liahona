@@ -36,7 +36,7 @@ export const SEED_EXERCISES = [
   ['Pull Up (Assisted)', 'Back', 'Machine', ABW],
   ['Chin Up', 'Back', 'Bodyweight', BW],
   ['Chin Up (Assisted)', 'Back', 'Machine', ABW],
-  ['Back Extension', 'Back', 'Bodyweight', BW],
+  ['Back Extension', 'Back', 'Bodyweight', WBW],
   ['Rack Pull (Barbell)', 'Back', 'Barbell', W],
   ['Shrug (Barbell)', 'Back', 'Barbell', W],
   ['Shrug (Dumbbell)', 'Back', 'Dumbbell', W],

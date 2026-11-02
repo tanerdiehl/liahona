@@ -218,7 +218,7 @@ function describeSet(s, type) {
     case 'weight_reps':
       return `${w} × ${s.reps}`
     case 'weighted_bodyweight':
-      return `+${w} × ${s.reps}`
+      return Number(s.weight) ? `+${w} × ${s.reps}` : `${s.reps} reps`
     case 'assisted_bodyweight':
       return `−${w} × ${s.reps}`
     case 'bodyweight_reps':

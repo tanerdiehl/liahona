@@ -622,7 +622,7 @@ function formatSet(s, type, unit) {
     case 'weight_reps':
       return `${w ?? 0} × ${s.reps ?? 0}`
     case 'weighted_bodyweight':
-      return `+${w ?? 0} × ${s.reps ?? 0}`
+      return w ? `+${w} × ${s.reps ?? 0}` : `${s.reps ?? 0} reps`
     case 'assisted_bodyweight':
       return `−${w ?? 0} × ${s.reps ?? 0}`
     case 'bodyweight_reps':
