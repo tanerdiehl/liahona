@@ -101,22 +101,39 @@ export default function DayPlanner() {
     const ns = Math.max(0, Math.min(24 * 60 - 1 - (en - s), s + delta))
     return { ...ev, start_time: fromMin(ns), end_time: fromMin(ns + en - s) }
   }
+  // The ref holds the live drag so a quick release never reads a stale position.
+  const dragRef = useRef(null)
   const dragHandlers = (ev, mode) => ({
     onPointerDown: (p) => {
       p.stopPropagation()
       p.preventDefault()
-      p.currentTarget.setPointerCapture(p.pointerId)
-      setDrag({ id: ev.id, mode, y0: p.clientY, dy: 0 })
+      try {
+        p.currentTarget.setPointerCapture(p.pointerId)
+      } catch {
+        /* not supported — moves still arrive while over the handle */
+      }
+      dragRef.current = { id: ev.id, mode, y0: p.clientY, dy: 0 }
+      setDrag(dragRef.current)
     },
-    onPointerMove: (p) => drag && setDrag((d) => d && { ...d, dy: p.clientY - d.y0 }),
-    onPointerUp: () => {
-      if (!drag) return
-      const delta = snap(drag.dy)
+    onPointerMove: (p) => {
+      const d = dragRef.current
+      if (!d || d.id !== ev.id) return
+      dragRef.current = { ...d, dy: p.clientY - d.y0 }
+      setDrag(dragRef.current)
+    },
+    onPointerUp: (p) => {
+      const d = dragRef.current
+      if (!d || d.id !== ev.id) return
+      dragRef.current = null
       setDrag(null)
+      const delta = snap(p.clientY - d.y0)
       // A repeating plan moves just for this day.
-      if (delta) plan.save(moved(ev, drag.mode, delta))
+      if (delta) plan.save(moved(ev, d.mode, delta))
     },
-    onPointerCancel: () => setDrag(null),
+    onPointerCancel: () => {
+      dragRef.current = null
+      setDrag(null)
+    },
     onClick: (c) => c.stopPropagation(),
   })
 
