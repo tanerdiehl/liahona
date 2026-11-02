@@ -65,6 +65,28 @@ export function useTasks(list = 'todo') {
     return true
   }
 
+  // An item that's already finished and never sat in the open list — e.g. a
+  // checked-off planner block. Returns its id once saved (null if not saved).
+  async function addDone(title, completedAt, extra = {}) {
+    const row = {
+      id: crypto.randomUUID(),
+      title,
+      list: 'todo',
+      sort_order: 0,
+      completed_at: completedAt,
+      created_at: new Date().toISOString(),
+      ...extra,
+    }
+    setTasks((prev) => [...(prev ?? []), row])
+    const { error } = await track(supabase.from('tasks').insert(row))
+    if (error) {
+      setTasks((prev) => prev.filter((t) => t.id !== row.id))
+      setError(`Not saved — ${error.message}`)
+      return null
+    }
+    return row.id
+  }
+
   function complete(task, el) {
     burst(el)
     return update(task.id, { completed_at: new Date().toISOString() })
@@ -111,5 +133,5 @@ export function useTasks(list = 'todo') {
     update(activeId, { sort_order })
   }
 
-  return { tasks, open, done, error, add, complete, reopen, rename, remove, reorder, moveTo }
+  return { tasks, open, done, error, add, addDone, complete, reopen, rename, remove, reorder, moveTo }
 }

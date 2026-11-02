@@ -82,14 +82,37 @@ export default function DayPlanner() {
     newEvent(min)
   }
 
-  function setStatus(ev, status, el) {
-    plan.save({ ...ev, status })
+  // Checking off a block also crosses it off in the to-do list: a linked
+  // to-do gets completed, and a one-off block is added to the to-do list's
+  // completed section. (Repeating blocks like scripture study aren't, so
+  // they don't flood the list every day.) Unchecking undoes it.
+  async function setStatus(ev, status, el) {
+    const task = ev.task_id && tasks.tasks?.find((t) => t.id === ev.task_id)
     if (status === 'done') {
       burst(el, CATEGORIES[ev.category]?.color)
-      const task = ev.task_id && tasks.open.find((t) => t.id === ev.task_id)
-      if (task) tasks.complete(task)
+      plan.save({ ...ev, status })
+      if (task) {
+        if (!task.completed_at) tasks.complete(task)
+      } else if (!ev.series_id && ev.title?.trim()) {
+        const when = ev.date === todayISO() ? new Date() : new Date(`${ev.date}T${ev.end_time.slice(0, 5)}`)
+        const id = await tasks.addDone(ev.title.trim(), when.toISOString(), { source: 'plan' })
+        if (id) plan.save({ ...ev, status, task_id: id })
+      }
+      return
     }
+    if (task?.source === 'plan') tasks.remove(task)
+    else if (task?.completed_at && ev.status === 'done') tasks.reopen(task)
+    plan.save({ ...ev, status, task_id: task?.source === 'plan' ? null : ev.task_id })
   }
+
+  // Checked off in the to-do list → show the block as done too.
+  useEffect(() => {
+    if (!plan.events || !tasks.tasks) return
+    for (const e of plan.events) {
+      const t = e.task_id && tasks.tasks.find((x) => x.id === e.task_id)
+      if (t?.completed_at && e.status === 'planned') plan.save({ ...e, status: 'done' })
+    }
+  }, [plan.events, tasks.tasks]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ---------- drag ⠿ to move a block, or its bottom edge to change length ----------
   const [drag, setDrag] = useState(null) // { id, mode: 'move' | 'resize', y0, dy }

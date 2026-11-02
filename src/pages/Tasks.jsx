@@ -106,7 +106,14 @@ export default function Tasks() {
                       <button className="box on" onClick={() => api.reopen(t)} aria-label={`Uncheck ${t.title}`}>
                         ✓
                       </button>
-                      <span className="keep-title">{t.title}</span>
+                      <span className="keep-title">
+                        {t.source === 'plan' && (
+                          <span className="from-plan" title="Done from your plan">
+                            📅{' '}
+                          </span>
+                        )}
+                        {t.title}
+                      </span>
                       <span className="keep-date">
                         {day === today
                           ? 'Today'
