@@ -3368,3 +3368,88 @@ body.resting .content {
   border-radius: 999px;
   padding: 1px 7px;
 }
+
+/* planner: drag + repeat */
+.plan-block {
+  padding-right: 26px;
+}
+.plan-grip {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  cursor: grab;
+  touch-action: none;
+  border-radius: 6px;
+}
+.plan-grip:active {
+  cursor: grabbing;
+  background: color-mix(in srgb, var(--cat) 25%, transparent);
+}
+.plan-resize {
+  position: absolute;
+  left: 30%;
+  right: 30%;
+  bottom: 0;
+  height: 10px;
+  cursor: ns-resize;
+  touch-action: none;
+}
+.plan-resize::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 3px;
+  width: 24px;
+  margin-left: -12px;
+  border-top: 2px solid color-mix(in srgb, var(--cat) 60%, transparent);
+  border-radius: 2px;
+}
+.plan-block.dragging {
+  z-index: 5;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+  opacity: 0.95;
+}
+.repeat-icon {
+  color: var(--cat);
+  font-weight: 400;
+}
+.repeat-row {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr;
+  gap: 8px;
+}
+.repeat-row label {
+  display: grid;
+  gap: 4px;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.day-chips {
+  display: flex;
+  gap: 6px;
+}
+.day-chip {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--text);
+  cursor: pointer;
+}
+.day-chip.on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.repeat-choice {
+  flex-wrap: wrap;
+}
+.plan-form .form-actions {
+  flex-wrap: wrap;
+}

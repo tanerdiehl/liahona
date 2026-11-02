@@ -23,6 +23,7 @@ const TABLES = [
   'progress_photos',
   'plan_events',
   'day_plans',
+  'plan_series',
 ]
 
 // Downloads every row you own as one JSON file — a copy of your data that

@@ -3,7 +3,20 @@ import { Link, useNavigate } from 'react-router-dom'
 import { addDays, formatLong, formatShort, fromISO, startOfWeek, todayISO, weekdayShort } from '../lib/dates'
 import { burst } from '../lib/celebrate'
 import { useTasks } from '../lib/useTasks'
-import { CATEGORIES, formatTime, fromMin, layoutEvents, nowMin, toMin, usePlan } from './planLib'
+import {
+  ALL_DAYS,
+  CATEGORIES,
+  DAY_LETTERS,
+  describeRepeat,
+  formatTime,
+  fromMin,
+  layoutEvents,
+  nowMin,
+  repeatKind,
+  toMin,
+  usePlan,
+  WEEKDAYS,
+} from './planLib'
 
 const HOUR_PX = 56
 const DAY_START = 6 * 60
@@ -77,6 +90,35 @@ export default function DayPlanner() {
       if (task) tasks.complete(task)
     }
   }
+
+  // ---------- drag ⠿ to move a block, or its bottom edge to change length ----------
+  const [drag, setDrag] = useState(null) // { id, mode: 'move' | 'resize', y0, dy }
+  const snap = (dy) => Math.round(((dy / HOUR_PX) * 60) / 15) * 15
+  function moved(ev, mode, delta) {
+    const s = toMin(ev.start_time)
+    const en = toMin(ev.end_time)
+    if (mode === 'resize') return { ...ev, end_time: fromMin(Math.max(s + 15, Math.min(24 * 60 - 1, en + delta))) }
+    const ns = Math.max(0, Math.min(24 * 60 - 1 - (en - s), s + delta))
+    return { ...ev, start_time: fromMin(ns), end_time: fromMin(ns + en - s) }
+  }
+  const dragHandlers = (ev, mode) => ({
+    onPointerDown: (p) => {
+      p.stopPropagation()
+      p.preventDefault()
+      p.currentTarget.setPointerCapture(p.pointerId)
+      setDrag({ id: ev.id, mode, y0: p.clientY, dy: 0 })
+    },
+    onPointerMove: (p) => drag && setDrag((d) => d && { ...d, dy: p.clientY - d.y0 }),
+    onPointerUp: () => {
+      if (!drag) return
+      const delta = snap(drag.dy)
+      setDrag(null)
+      // A repeating plan moves just for this day.
+      if (delta) plan.save(moved(ev, drag.mode, delta))
+    },
+    onPointerCancel: () => setDrag(null),
+    onClick: (c) => c.stopPropagation(),
+  })
 
   const scheduled = new Set(events.map((e) => e.task_id).filter(Boolean))
   const unscheduled = tasks.open.filter((t) => t.title.trim() && !scheduled.has(t.id))
@@ -158,14 +200,16 @@ export default function DayPlanner() {
               <div key={m} className="timeline-line" style={{ top: y(m) }} />
             ))}
             {date === today && now >= first && now <= last && <div className="now-line" style={{ top: y(now) }} />}
-            {layoutEvents(events).map(({ e, col, cols }) => {
+            {layoutEvents(events).map(({ e: orig, col, cols }) => {
+              const dragging = drag?.id === orig.id
+              const e = dragging ? moved(orig, drag.mode, snap(drag.dy)) : orig
               const cat = CATEGORIES[e.category] ?? CATEGORIES.other
               const top = y(toMin(e.start_time))
               const height = Math.max(26, y(toMin(e.end_time)) - top - 2)
               return (
                 <div
                   key={e.id}
-                  className={`plan-block s-${e.status} ${height < 44 ? 'short' : ''}`}
+                  className={`plan-block s-${e.status} ${height < 44 ? 'short' : ''} ${dragging ? 'dragging' : ''}`}
                   style={{
                     top,
                     height,
@@ -173,25 +217,32 @@ export default function DayPlanner() {
                     width: `calc(${100 / cols}% - 4px)`,
                     '--cat': cat.color,
                   }}
-                  onClick={() => setEditing(e)}
+                  onClick={() => setEditing(orig)}
                 >
                   <button
                     className="plan-check"
                     onClick={(ev) => {
                       ev.stopPropagation()
-                      setStatus(e, e.status === 'done' ? 'planned' : 'done', ev.currentTarget)
+                      setStatus(orig, orig.status === 'done' ? 'planned' : 'done', ev.currentTarget)
                     }}
                     aria-label={e.status === 'done' ? 'Mark not done' : 'Mark done'}
                   >
                     {e.status === 'done' ? '✓' : e.status === 'missed' ? '✕' : ''}
                   </button>
                   <span className="plan-block-text">
-                    <strong>{e.title || 'Untitled'}</strong>
+                    <strong>
+                      {e.series_id && <span className="repeat-icon" aria-label="Repeats">↻ </span>}
+                      {e.title || 'Untitled'}
+                    </strong>
                     <span className="small">
                       {formatTime(e.start_time)}–{formatTime(e.end_time)}
                       {e.location ? ` · ${e.location}` : ''}
                     </span>
                   </span>
+                  <span className="plan-grip" aria-label="Drag to move" {...dragHandlers(orig, 'move')}>
+                    ⠿
+                  </span>
+                  <span className="plan-resize" aria-label="Drag to change the end time" {...dragHandlers(orig, 'resize')} />
                 </div>
               )
             })}
@@ -245,25 +296,35 @@ export default function DayPlanner() {
       {editing && (
         <EventSheet
           event={editing}
+          series={editing.series_id ? plan.seriesById[editing.series_id] : null}
           tasks={tasks}
           onClose={() => setEditing(null)}
-          onSave={(ev) => {
-            // eslint-disable-next-line no-unused-vars
-            const { isNew, ...row } = ev
-            plan.save(row)
-            if (row.date !== date) setDate(row.date)
+          onSave={({ event: ev, repeat, scope }) => {
+            if (!ev.series_id) {
+              if (repeat) plan.makeRepeating(ev, repeat)
+              else plan.save(ev)
+            } else if (scope === 'following') plan.saveFollowing(ev, repeat)
+            else plan.save(ev)
+            if (ev.date !== date) setDate(ev.date)
             setEditing(null)
           }}
           onStatus={(status, el) => {
             setStatus(editing, status, el)
             setEditing(null)
           }}
-          onDelete={() => {
-            plan.remove(editing)
+          onDelete={(scope) => {
+            plan.remove(editing, scope)
             setEditing(null)
           }}
           onDuplicate={() => {
-            plan.save({ ...editing, id: uuid(), date: addDays(editing.date, 1), status: 'planned', isNew: undefined })
+            plan.save({
+              ...editing,
+              id: uuid(),
+              virtual: false,
+              series_id: null,
+              date: addDays(editing.date, 1),
+              status: 'planned',
+            })
             setEditing(null)
           }}
           onOpenTodo={() => navigate('/todo')}
@@ -329,20 +390,34 @@ function DayNotes({ label, placeholder, value, onSave }) {
   )
 }
 
-function EventSheet({ event, tasks, onClose, onSave, onStatus, onDelete, onDuplicate }) {
+function EventSheet({ event, series, tasks, onClose, onSave, onStatus, onDelete, onDuplicate }) {
   const [f, setF] = useState(event)
   const [more, setMore] = useState(Boolean(event.location || event.notes || event.backup))
+  const repeating = Boolean(event.series_id)
+  // Repeat pattern: kind 'none' | 'daily' | 'weekdays' | 'weekly'.
+  const weekdayOf = (d) => fromISO(d).getDay()
+  const [rep, setRep] = useState(() =>
+    series
+      ? { kind: repeatKind(series.days), days: series.days, until: series.end_date ?? '' }
+      : { kind: 'none', days: [weekdayOf(event.date)], until: '' },
+  )
+  const [askDelete, setAskDelete] = useState(false)
   const set = (k) => (e) => setF((x) => ({ ...x, [k]: e.target.value }))
   const startMin = toMin(f.start_time)
   const endMin = toMin(f.end_time)
-  const valid = f.title.trim() && endMin > startMin
+  const repeatDays = rep.kind === 'daily' ? ALL_DAYS : rep.kind === 'weekdays' ? WEEKDAYS : rep.days
+  const valid = f.title.trim() && endMin > startMin && (rep.kind === 'none' || repeatDays.length > 0)
   const task = f.task_id && tasks.tasks?.find((t) => t.id === f.task_id)
+  const repeat = rep.kind === 'none' ? null : { days: repeatDays, end_date: rep.until || null }
 
   function setStart(v) {
     // Keep the same length when the start moves.
     const len = endMin - startMin
     setF((x) => ({ ...x, start_time: v, end_time: fromMin(toMin(v) + (len > 0 ? len : 60)) }))
   }
+  const toggleDay = (d) =>
+    setRep((r) => ({ ...r, days: r.days.includes(d) ? r.days.filter((x) => x !== d) : [...r.days, d].sort() }))
+  const submit = (scope) => valid && onSave({ event: { ...f, title: f.title.trim() }, repeat, scope })
 
   return (
     <div className="sheet-backdrop" onClick={onClose}>
@@ -357,7 +432,7 @@ function EventSheet({ event, tasks, onClose, onSave, onStatus, onDelete, onDupli
           className="plan-form"
           onSubmit={(e) => {
             e.preventDefault()
-            if (valid) onSave({ ...f, title: f.title.trim() })
+            submit(repeating ? 'one' : undefined)
           }}
         >
           <input
@@ -369,8 +444,8 @@ function EventSheet({ event, tasks, onClose, onSave, onStatus, onDelete, onDupli
           />
           <div className="when-editor">
             <label>
-              Date
-              <input type="date" value={f.date} onChange={set('date')} />
+              {rep.kind !== 'none' && !repeating ? 'Starting' : 'Date'}
+              <input type="date" value={f.date} onChange={set('date')} disabled={repeating} />
             </label>
             <label>
               Start
@@ -382,6 +457,51 @@ function EventSheet({ event, tasks, onClose, onSave, onStatus, onDelete, onDupli
             </label>
           </div>
           {endMin <= startMin && <p className="error small">End time needs to be after the start.</p>}
+
+          <div className="repeat-row">
+            <label>
+              Repeat
+              <select value={rep.kind} onChange={(e) => setRep((r) => ({ ...r, kind: e.target.value }))}>
+                <option value="none">Doesn't repeat</option>
+                <option value="daily">Every day</option>
+                <option value="weekdays">Weekdays (Mon–Fri)</option>
+                <option value="weekly">On certain days…</option>
+              </select>
+            </label>
+            {rep.kind !== 'none' && (
+              <label>
+                Until
+                <input
+                  type="date"
+                  value={rep.until}
+                  min={f.date}
+                  onChange={(e) => setRep((r) => ({ ...r, until: e.target.value }))}
+                />
+              </label>
+            )}
+          </div>
+          {rep.kind === 'weekly' && (
+            <div className="day-chips">
+              {DAY_LETTERS.map((l, d) => (
+                <button
+                  type="button"
+                  key={d}
+                  className={`day-chip ${rep.days.includes(d) ? 'on' : ''}`}
+                  onClick={() => toggleDay(d)}
+                  aria-pressed={rep.days.includes(d)}
+                >
+                  {l}
+                </button>
+              ))}
+            </div>
+          )}
+          {rep.kind !== 'none' && (
+            <p className="muted small">
+              {describeRepeat({ days: repeatDays, end_date: rep.until })}
+              {!rep.until && ' — leave "Until" blank to keep it going, or set the last day (like the end of the semester).'}
+            </p>
+          )}
+
           <div className="cat-chips">
             {Object.entries(CATEGORIES).map(([k, c]) => (
               <button
@@ -435,22 +555,56 @@ function EventSheet({ event, tasks, onClose, onSave, onStatus, onDelete, onDupli
             <p className="muted small">Backup plan: {event.backup}</p>
           )}
 
-          <div className="form-actions">
-            {!event.isNew && (
-              <>
-                <button type="button" className="link-btn danger-link" onClick={onDelete}>
+          {askDelete ? (
+            <div className="form-actions repeat-choice">
+              <span className="muted small">Delete…</span>
+              <button type="button" className="btn small ghost" onClick={() => onDelete('one')}>
+                Just this day
+              </button>
+              <button type="button" className="btn small danger" onClick={() => onDelete('following')}>
+                This & all after
+              </button>
+              <button type="button" className="link-btn" onClick={() => setAskDelete(false)}>
+                Cancel
+              </button>
+            </div>
+          ) : repeating ? (
+            <>
+              <div className="form-actions">
+                <button type="button" className="link-btn danger-link" onClick={() => setAskDelete(true)}>
                   Delete
                 </button>
-                <button type="button" className="link-btn" onClick={onDuplicate}>
-                  Copy to next day
+                <span className="grow" />
+                <button type="button" className="btn ghost" disabled={!valid} onClick={() => submit('one')}>
+                  Save this day
                 </button>
-              </>
-            )}
-            <span className="grow" />
-            <button type="submit" className="btn primary" disabled={!valid}>
-              Save
-            </button>
-          </div>
+                <button type="button" className="btn primary" disabled={!valid} onClick={() => submit('following')}>
+                  Save all from here
+                </button>
+              </div>
+              <p className="muted small">
+                “This day” changes only {formatShort(event.date)}. “All from here” changes every one from this day on —
+                earlier days keep their history.
+              </p>
+            </>
+          ) : (
+            <div className="form-actions">
+              {!event.isNew && (
+                <>
+                  <button type="button" className="link-btn danger-link" onClick={() => onDelete('one')}>
+                    Delete
+                  </button>
+                  <button type="button" className="link-btn" onClick={onDuplicate}>
+                    Copy to next day
+                  </button>
+                </>
+              )}
+              <span className="grow" />
+              <button type="submit" className="btn primary" disabled={!valid}>
+                Save
+              </button>
+            </div>
+          )}
         </form>
       </div>
     </div>
